@@ -1,0 +1,13 @@
+{
+    "gcn_num_features" : 3,
+    "gcn_hidden_dim1" : 32,
+    "gcn_hidden_dim2" : 64,
+    "gcn_output_dim" : 128,
+    "transformer_d_model" : 128,
+    "transformer_nhead" : 32,
+    "transformer_num_layers" : 16,
+    "transformer_num_features" : 128,
+    "transformer_dropout" : 0.1,
+    "transformer_dim_feedforward" : 2048,
+    "lr" : 0.001
+}
