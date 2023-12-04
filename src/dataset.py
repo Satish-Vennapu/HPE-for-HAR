@@ -1,6 +1,11 @@
 import torch
 import numpy as np
 import os
+from torch_geometric.data import Data
+from torch_geometric.data import Dataset, Batch
+# from torch_geometric.loader import DataLoader
+
+from dataloader import CustomDataLoader
 
 from typing import Dict
 
@@ -31,28 +36,71 @@ def is_valid_file(file_name : str, skip : int = 11) -> bool:
 
     return npy_file and cam0 and skip_frame_num
 
-class KeyPointsDataset(torch.utils.data.Dataset):
+def get_edge_index():
+    POSE_CONNECTIONS = [
+        (0, 1), (1, 2), (2, 3), (3, 7),  # Head to left shoulder
+        (0, 4), (4, 5), (5, 6), (6, 8),  # Head to right shoulder
+        (9, 10), (11, 12),               # Left and right shoulder
+        (11, 13), (13, 15), (15, 17), (15, 19), (15, 21),  # Left arm
+        (12, 14), (14, 16), (16, 18), (16, 20), (16, 22),  # Right arm
+        (11, 23), (12, 24), (23, 24),    # Torso
+        (23, 25), (25, 27), (27, 29), (29, 31),  # Left leg
+        (24, 26), (26, 28), (28, 30), (30, 32)   # Right leg
+    ]
+    edge_index = torch.tensor(POSE_CONNECTIONS, dtype=torch.long).t().contiguous()
+
+    return edge_index
+
+class PoseGraphDataset(Dataset):
     """
     Dataset class for the keypoint dataset
     """
     def __init__(self, dataset_folder : str, skip : int = 11) -> None:
+        super().__init__(None, None, None)
         self.dataset_folder = dataset_folder
-        self.labels = []
+        self.edge_index = get_edge_index()
 
-        self.kps = []
+        self.poses = []
+        self.labels = []
         self.file_names = []
 
         for root, dirs, files in os.walk(dataset_folder):
             for file in files:
                 if is_valid_file(file, skip):
                     file_path = os.path.join(root, file)
+                    
                     kps = np.load(file_path)
                     kps = kps[:, :, :3]
-                    self.kps.append(kps)
+                    pose_graphs = self._create_pose_graph(kps)
+
+                    self.poses.append(pose_graphs)
                     self.labels.append(get_label(file_path))
                     self.file_names.append(file_path)
 
-    def __len__(self) -> int:
+    def _create_pose_graph(self, keypoints : torch.Tensor) -> Data:
+        """
+        Creates a Pose Graph from the given keypoints and edge index
+
+        Parameters
+        ----------
+        keypoints : torch.Tensor
+            Keypoints of the pose
+        edge_index : torch.Tensor
+            Edge index of the pose
+
+        Returns
+        -------
+        Data
+            Pose Graph
+        """
+        pose_graphs = []
+        for t in range(keypoints.shape[0]):
+            pose_graph = Data(x=torch.tensor(keypoints[t, :, :], dtype=torch.float), edge_index=self.edge_index)
+            pose_graphs.append(pose_graph)
+
+        return pose_graphs
+
+    def len(self) -> int:
         """
         Returns the number of samples in the dataset
 
@@ -61,9 +109,9 @@ class KeyPointsDataset(torch.utils.data.Dataset):
         int : len
             Number of samples in the dataset
         """
-        return len(self.kps)
+        return len(self.poses)
 
-    def __getitem__(self, index : int) -> Dict[str, torch.Tensor]:
+    def get(self, index : int) -> Dict[str, torch.Tensor]:
         """
         Returns the sample at the given index
 
@@ -72,26 +120,25 @@ class KeyPointsDataset(torch.utils.data.Dataset):
         dict : {kps, label, file_name}
             A dictionary containing the keypoint array, label and file name
         """
-        kps = self.kps[index]
+        poses = self.poses[index]
         label = self.labels[index]
-        return {'kps' : torch.from_numpy(kps), 'label' : torch.tensor(label), 'file_name' : self.file_names[index]}
-    
+        return poses, label
+
 if __name__ == "__main__":
 
-    dataset = KeyPointsDataset('./data/')
-    if len(dataset) > 0:
-        print("Dataset loaded successfully")
-        print("Number of samples:", len(dataset))
-        print("First sample:")
-        print("Keypoints shape:", dataset[0]['kps'].shape)
-        print("Label:", dataset[0]['label'].item())
-        print("File name:", dataset[0]['file_name'])
-    else:
-        print("Dataset not loaded")
+    dataset = PoseGraphDataset('./data/')
 
-    # check if dataset[index]['kps'].shape == (24, 33, 3)
-    print("Checking if dataset[index]['kps'].shape == (24, 33, 3)")
-    for i in range(len(dataset)):
-        print(f"Checking sample {i}...")
-        print(f"dataset[{i}]['kps'].shape:", dataset[i]['kps'].shape)
-        # assert dataset[i]['kps'].shape == (24, 33, 3), f"dataset[{i}]['kps'].shape != (24, 33, 3)"
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+
+    train_dataloader = CustomDataLoader(train_dataset, batch_size=4, shuffle=False)
+    # val_dataloader = CustomDataLoader(val_dataset, batch_size=4, shuffle=True)
+    
+    for idx, batch in enumerate(train_dataloader):
+        individual_graphs = []
+        print(len(batch[0][0]))
+        print(len(batch[0][1]))
+        print(len(batch[0][2]))
+
+        print(f"Batch {idx}, Batch size: {len(batch[0])}, Label: {batch[1]}")   

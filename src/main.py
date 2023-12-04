@@ -1,10 +1,12 @@
 from action_recognizer import Solver
-from dataset import KeyPointsDataset
+from dataset import PoseGraphDataset
 
 import torch
+from torch_geometric.data import Batch
+from dataloader import CustomDataLoader
 
 def load_dataset(dataset_folder):
-    dataset = KeyPointsDataset(dataset_folder, skip=11)
+    dataset = PoseGraphDataset(dataset_folder, skip=11)
 
     if len(dataset) > 0:
         print("Dataset loaded successfully")
@@ -19,40 +21,24 @@ def load_dataset(dataset_folder):
 
     return train_dataset, val_dataset
 
-def get_edge_index():
-    POSE_CONNECTIONS = [
-        (0, 1), (1, 2), (2, 3), (3, 7),  # Head to left shoulder
-        (0, 4), (4, 5), (5, 6), (6, 8),  # Head to right shoulder
-        (9, 10), (11, 12),               # Left and right shoulder
-        (11, 13), (13, 15), (15, 17), (15, 19), (15, 21),  # Left arm
-        (12, 14), (14, 16), (16, 18), (16, 20), (16, 22),  # Right arm
-        (11, 23), (12, 24), (23, 24),    # Torso
-        (23, 25), (25, 27), (27, 29), (29, 31),  # Left leg
-        (24, 26), (26, 28), (28, 30), (30, 32)   # Right leg
-    ]
-    edge_index = torch.tensor(POSE_CONNECTIONS, dtype=torch.long).t().contiguous()
-
-    return edge_index
-
 def main():
     train_dataset, val_dataset = load_dataset('./data/')
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
-    val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=True)
-
+    train_dataloader = CustomDataLoader(train_dataset, batch_size=4, shuffle=False)
+    val_dataloader = CustomDataLoader(val_dataset, batch_size=4, shuffle=False)
+    
     solver = Solver(
         gcn_num_features=3,
         gcn_hidden_dim1=32,
         gcn_hidden_dim2=64,
         gcn_output_dim=128,
         transformer_d_model=128,
-        transformer_nhead=8,
-        transformer_num_layers=6,
+        transformer_nhead=16,
+        transformer_num_layers=8,
         transformer_num_features=128,
         transformer_dropout=0.1,
         transformer_dim_feedforward=2048,
-        edge_index=get_edge_index()
     )
-    solver.train(train_dataloader, val_dataloader, epochs=50)
+    solver.train(train_dataloader, val_dataloader, epochs=100)
 
 if __name__ == "__main__":
     main()

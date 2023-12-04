@@ -3,25 +3,6 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 from torch_geometric.data import Data
 
-def create_pose_graph(keypoints : torch.Tensor, edge_index : torch.Tensor) -> Data:
-    """
-    Creates a Pose Graph from the given keypoints and edge index
-
-    Parameters
-    ----------
-    keypoints : torch.Tensor
-        Keypoints of the pose
-    edge_index : torch.Tensor
-        Edge index of the pose
-
-    Returns
-    -------
-    Data
-        Pose Graph
-    """
-    pose_graph = Data(x=torch.tensor(keypoints, dtype=torch.float), edge_index=edge_index)
-    return pose_graph
-
 class PoseGCN(torch.nn.Module):
     def __init__(
             self,

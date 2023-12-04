@@ -3,7 +3,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 
 from transformer import TransformerBinaryClassifier
-from gcn import PoseGCN, create_pose_graph
+from gcn import PoseGCN
 
 from typing import Tuple
 
@@ -20,7 +20,6 @@ class ActionRecogniser(nn.Module):
             transformer_num_features : int,
             transformer_dropout : float = 0.1,
             transformer_dim_feedforward : int = 2048,
-            edge_index : torch.Tensor = None
         ) -> None:            
         """
         Parameters
@@ -47,7 +46,6 @@ class ActionRecogniser(nn.Module):
             Dimension of the feedforward network, by default 2048
         """
         super(ActionRecogniser, self).__init__()
-        self.edge_index = edge_index
         self.gcn = PoseGCN(
             gcn_num_features,
             gcn_hidden_dim1,
@@ -63,7 +61,7 @@ class ActionRecogniser(nn.Module):
             transformer_dim_feedforward
         )
 
-    def forward(self, kps : torch.Tensor) -> torch.Tensor:
+    def forward(self, videos : torch.Tensor) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -75,18 +73,17 @@ class ActionRecogniser(nn.Module):
         torch.Tensor
             Classification of the input sequence of keypoints
         """
-        seq_length = kps.shape[1]
+        classifications = []
+        for video in videos:
+            frame_embeddings = []
+            for frame in video:
+                frame_embeddings.append(self.gcn(frame.to("cuda")))
+            frame_embeddings = torch.stack(frame_embeddings)
 
-        frame_embeddings = []
-        for t in range(seq_length):
-            pose_graph = create_pose_graph(kps[0, t, :, :], self.edge_index).to("cuda")
-            embedding = self.gcn(pose_graph)
-            frame_embeddings.append(embedding)
+            classification = self.transformer(frame_embeddings.unsqueeze(0).to("cuda"))
+            classifications.append(classification)
 
-        sequence_embeddings = torch.stack(frame_embeddings)
-        classification = self.transformer(sequence_embeddings.unsqueeze(0))
-
-        return classification
+        return torch.stack(classifications).squeeze(1)
     
 class Solver:
 
@@ -102,7 +99,6 @@ class Solver:
             transformer_num_features : int,
             transformer_dropout : float = 0.1,
             transformer_dim_feedforward : int = 2048,
-            edge_index : torch.Tensor = None,
             lr : float = 0.001
         ) -> None:
         """
@@ -146,7 +142,6 @@ class Solver:
             transformer_num_features,
             transformer_dropout,
             transformer_dim_feedforward,
-            edge_index
         ).to(self.device)
 
         self.lr = lr
@@ -214,8 +209,8 @@ class Solver:
         epoch_correct = 0
         epoch_count = 0
         for idx, batch in enumerate(iter(train_loader)):
-            predictions = self.model(batch['kps'].to(self.device))
-            labels = batch['label'].to(self.device)
+            predictions = self.model(batch[0])
+            labels = batch[1].to(self.device)
 
             loss = self.criterion(predictions, labels)
 
@@ -255,8 +250,8 @@ class Solver:
             val_epoch_count = 0
 
             for idx, batch in enumerate(iter(val_loader)):
-                predictions = self.model(batch['kps'].to(self.device).long())
-                labels = batch['label'].to(self.device)
+                predictions = self.model(batch[0])
+                labels = batch[1].to(self.device)
                 
                 val_loss = self.criterion(predictions, labels)
                 
