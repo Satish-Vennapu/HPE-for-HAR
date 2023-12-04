@@ -3,18 +3,21 @@ import numpy as np
 import os
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset, Batch
+
 # from torch_geometric.loader import DataLoader
 
-from dataloader import CustomDataLoader
+from .dataloader import CustomDataLoader
 
 from typing import Dict
 
-def get_label(file_name : str) -> int:
-    if 'adl' in file_name:
+
+def get_label(file_name: str) -> int:
+    if "adl" in file_name:
         return 0
     return 1
 
-def is_valid_file(file_name : str, skip : int = 11) -> bool:
+
+def is_valid_file(file_name: str, skip: int = 11) -> bool:
     """
     Checks if the file is a valid file
 
@@ -30,32 +33,58 @@ def is_valid_file(file_name : str, skip : int = 11) -> bool:
     bool
         True if the file is valid, False otherwise
     """
-    npy_file = file_name.endswith('.npy')
-    cam0 = 'cam0' in file_name
-    skip_frame_num = file_name.split('/')[-1].split('-')[-2] == str(skip)
+    npy_file = file_name.endswith(".npy")
+    cam0 = "cam0" in file_name
+    skip_frame_num = file_name.split("/")[-1].split("-")[-2] == str(skip)
 
     return npy_file and cam0 and skip_frame_num
 
+
 def get_edge_index():
     POSE_CONNECTIONS = [
-        (0, 1), (1, 2), (2, 3), (3, 7),  # Head to left shoulder
-        (0, 4), (4, 5), (5, 6), (6, 8),  # Head to right shoulder
-        (9, 10), (11, 12),               # Left and right shoulder
-        (11, 13), (13, 15), (15, 17), (15, 19), (15, 21),  # Left arm
-        (12, 14), (14, 16), (16, 18), (16, 20), (16, 22),  # Right arm
-        (11, 23), (12, 24), (23, 24),    # Torso
-        (23, 25), (25, 27), (27, 29), (29, 31),  # Left leg
-        (24, 26), (26, 28), (28, 30), (30, 32)   # Right leg
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 7),  # Head to left shoulder
+        (0, 4),
+        (4, 5),
+        (5, 6),
+        (6, 8),  # Head to right shoulder
+        (9, 10),
+        (11, 12),  # Left and right shoulder
+        (11, 13),
+        (13, 15),
+        (15, 17),
+        (15, 19),
+        (15, 21),  # Left arm
+        (12, 14),
+        (14, 16),
+        (16, 18),
+        (16, 20),
+        (16, 22),  # Right arm
+        (11, 23),
+        (12, 24),
+        (23, 24),  # Torso
+        (23, 25),
+        (25, 27),
+        (27, 29),
+        (29, 31),  # Left leg
+        (24, 26),
+        (26, 28),
+        (28, 30),
+        (30, 32),  # Right leg
     ]
     edge_index = torch.tensor(POSE_CONNECTIONS, dtype=torch.long).t().contiguous()
 
     return edge_index
 
+
 class PoseGraphDataset(Dataset):
     """
     Dataset class for the keypoint dataset
     """
-    def __init__(self, dataset_folder : str, skip : int = 11) -> None:
+
+    def __init__(self, dataset_folder: str, skip: int = 11) -> None:
         super().__init__(None, None, None)
         self.dataset_folder = dataset_folder
         self.edge_index = get_edge_index()
@@ -68,7 +97,7 @@ class PoseGraphDataset(Dataset):
             for file in files:
                 if is_valid_file(file, skip):
                     file_path = os.path.join(root, file)
-                    
+
                     kps = np.load(file_path)
                     kps = kps[:, :, :3]
                     pose_graphs = self._create_pose_graph(kps)
@@ -77,7 +106,7 @@ class PoseGraphDataset(Dataset):
                     self.labels.append(get_label(file_path))
                     self.file_names.append(file_path)
 
-    def _create_pose_graph(self, keypoints : torch.Tensor) -> Data:
+    def _create_pose_graph(self, keypoints: torch.Tensor) -> Data:
         """
         Creates a Pose Graph from the given keypoints and edge index
 
@@ -95,7 +124,10 @@ class PoseGraphDataset(Dataset):
         """
         pose_graphs = []
         for t in range(keypoints.shape[0]):
-            pose_graph = Data(x=torch.tensor(keypoints[t, :, :], dtype=torch.float), edge_index=self.edge_index)
+            pose_graph = Data(
+                x=torch.tensor(keypoints[t, :, :], dtype=torch.float),
+                edge_index=self.edge_index,
+            )
             pose_graphs.append(pose_graph)
 
         return pose_graphs
@@ -111,7 +143,7 @@ class PoseGraphDataset(Dataset):
         """
         return len(self.poses)
 
-    def get(self, index : int) -> Dict[str, torch.Tensor]:
+    def get(self, index: int) -> Dict[str, torch.Tensor]:
         """
         Returns the sample at the given index
 
@@ -124,21 +156,16 @@ class PoseGraphDataset(Dataset):
         label = self.labels[index]
         return poses, label
 
-if __name__ == "__main__":
 
-    dataset = PoseGraphDataset('./data/')
+# if __name__ == "__main__":
+#     dataset = PoseGraphDataset("./data/")
 
-    train_size = int(0.8 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+#     train_size = int(0.8 * len(dataset))
+#     val_size = len(dataset) - train_size
+#     train_dataset, val_dataset = torch.utils.data.random_split(
+#         dataset, [train_size, val_size]
+#     )
 
-    train_dataloader = CustomDataLoader(train_dataset, batch_size=4, shuffle=False)
-    # val_dataloader = CustomDataLoader(val_dataset, batch_size=4, shuffle=True)
-    
-    for idx, batch in enumerate(train_dataloader):
-        individual_graphs = []
-        print(len(batch[0][0]))
-        print(len(batch[0][1]))
-        print(len(batch[0][2]))
+#     train_dataloader = CustomDataLoader(train_dataset, batch_size=4, shuffle=False)
+#     # val_dataloader = CustomDataLoader(val_dataset, batch_size=4, shuffle=True)
 
-        print(f"Batch {idx}, Batch size: {len(batch[0])}, Label: {batch[1]}")   

@@ -2,25 +2,26 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
-from transformer import TransformerBinaryClassifier
-from gcn import PoseGCN
+from models.transformer import TransformerBinaryClassifier
+from models.gcn import PoseGCN
 
 from typing import Tuple
 
+
 class ActionRecogniser(nn.Module):
     def __init__(
-            self,
-            gcn_num_features : int,
-            gcn_hidden_dim1 : int,
-            gcn_hidden_dim2 : int,
-            gcn_output_dim : int,
-            transformer_d_model : int,
-            transformer_nhead : int,
-            transformer_num_layers : int,
-            transformer_num_features : int,
-            transformer_dropout : float = 0.1,
-            transformer_dim_feedforward : int = 2048,
-        ) -> None:            
+        self,
+        gcn_num_features: int,
+        gcn_hidden_dim1: int,
+        gcn_hidden_dim2: int,
+        gcn_output_dim: int,
+        transformer_d_model: int,
+        transformer_nhead: int,
+        transformer_num_layers: int,
+        transformer_num_features: int,
+        transformer_dropout: float = 0.1,
+        transformer_dim_feedforward: int = 2048,
+    ) -> None:
         """
         Parameters
         ----------
@@ -47,10 +48,7 @@ class ActionRecogniser(nn.Module):
         """
         super(ActionRecogniser, self).__init__()
         self.gcn = PoseGCN(
-            gcn_num_features,
-            gcn_hidden_dim1,
-            gcn_hidden_dim2,
-            gcn_output_dim
+            gcn_num_features, gcn_hidden_dim1, gcn_hidden_dim2, gcn_output_dim
         )
         self.transformer = TransformerBinaryClassifier(
             transformer_d_model,
@@ -58,10 +56,10 @@ class ActionRecogniser(nn.Module):
             transformer_num_layers,
             transformer_num_features,
             transformer_dropout,
-            transformer_dim_feedforward
+            transformer_dim_feedforward,
         )
 
-    def forward(self, videos : torch.Tensor) -> torch.Tensor:
+    def forward(self, videos: torch.Tensor) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -84,23 +82,23 @@ class ActionRecogniser(nn.Module):
             classifications.append(classification)
 
         return torch.stack(classifications).squeeze(1)
-    
-class Solver:
 
+
+class Solver:
     def __init__(
-            self,
-            gcn_num_features : int,
-            gcn_hidden_dim1 : int,
-            gcn_hidden_dim2 : int,
-            gcn_output_dim : int,
-            transformer_d_model : int,
-            transformer_nhead : int,
-            transformer_num_layers : int,
-            transformer_num_features : int,
-            transformer_dropout : float = 0.1,
-            transformer_dim_feedforward : int = 2048,
-            lr : float = 0.001
-        ) -> None:
+        self,
+        gcn_num_features: int,
+        gcn_hidden_dim1: int,
+        gcn_hidden_dim2: int,
+        gcn_output_dim: int,
+        transformer_d_model: int,
+        transformer_nhead: int,
+        transformer_num_layers: int,
+        transformer_num_features: int,
+        transformer_dropout: float = 0.1,
+        transformer_dim_feedforward: int = 2048,
+        lr: float = 0.001,
+    ) -> None:
         """
         Parameters
         ----------
@@ -127,8 +125,8 @@ class Solver:
         lr : float, optional
             Learning rate, by default 0.001
         """
-        
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print("Device:", self.device)
 
         self.model = ActionRecogniser(
@@ -144,6 +142,7 @@ class Solver:
             transformer_dim_feedforward,
         ).to(self.device)
 
+        print(sum(p.numel() for p in self.model.parameters()))
         self.lr = lr
 
         self.criterion = nn.CrossEntropyLoss().to(self.device)
@@ -153,7 +152,13 @@ class Solver:
         self.train_loss = []
         self.val_loss = []
 
-    def train(self, train_loader : torch.utils.data.DataLoader, val_loader : torch.utils.data.DataLoader, epochs : int = 20) -> None:
+    def train(
+        self,
+        train_loader: torch.utils.data.DataLoader,
+        val_loader: torch.utils.data.DataLoader,
+        epochs: int = 20,
+        output_path: str = "../output",
+    ) -> None:
         """
         Trains the model
 
@@ -172,25 +177,33 @@ class Solver:
         """
         torch.manual_seed(0)
 
-        best_val_loss = float('inf')
+        best_val_loss = float("inf")
 
         for epoch in range(epochs):
             epoch_loss, epoch_correct, epoch_count = self.train_one_epoch(train_loader)
             self.train_loss.append(epoch_loss)
-            print(f"\nepoch: {epoch} | epoch loss: {epoch_loss}        | epoch accuracy: {epoch_correct / epoch_count}")
-            
-            epoch_val_loss, epoch_val_correct, epoch_val_count = self.evaluate(val_loader)
+            print(
+                f"\nepoch: {epoch} | epoch loss: {epoch_loss}        | epoch accuracy: {epoch_correct / epoch_count}"
+            )
+
+            epoch_val_loss, epoch_val_correct, epoch_val_count = self.evaluate(
+                val_loader
+            )
             self.val_loss.append(epoch_val_loss)
-            print(f"epoch: {epoch} | epoch val loss: {epoch_val_loss}   | epoch val accuracy: {epoch_val_correct / epoch_val_count}")
+            print(
+                f"epoch: {epoch} | epoch val loss: {epoch_val_loss}   | epoch val accuracy: {epoch_val_correct / epoch_val_count}"
+            )
             # self.scheduler.step()
 
             if epoch_val_loss < best_val_loss:
                 best_val_loss = epoch_val_loss
-                torch.save(self.model.state_dict(), 'best_model.pt')
+                torch.save(self.model.state_dict(), "best_model.pt")
 
         self._plot_losses()
 
-    def train_one_epoch(self, train_loader : torch.utils.data.DataLoader) -> Tuple[float, int, int]:
+    def train_one_epoch(
+        self, train_loader: torch.utils.data.DataLoader
+    ) -> Tuple[float, int, int]:
         """
         Trains the model for one epoch
 
@@ -228,7 +241,9 @@ class Solver:
 
         return epoch_loss, epoch_correct, epoch_count
 
-    def evaluate(self, val_loader : torch.utils.data.DataLoader) -> Tuple[float, int, int]:
+    def evaluate(
+        self, val_loader: torch.utils.data.DataLoader
+    ) -> Tuple[float, int, int]:
         """
         Evaluates the model
 
@@ -252,9 +267,9 @@ class Solver:
             for idx, batch in enumerate(iter(val_loader)):
                 predictions = self.model(batch[0])
                 labels = batch[1].to(self.device)
-                
+
                 val_loss = self.criterion(predictions, labels)
-                
+
                 correct = predictions.argmax(axis=1) == labels
 
                 val_epoch_correct += correct.sum().item()
@@ -262,7 +277,7 @@ class Solver:
                 val_epoch_loss += val_loss.item()
 
         return val_epoch_loss, val_epoch_correct, val_epoch_count
-    
+
     def _plot_losses(self) -> None:
         """
         Plots the training and validation losses
@@ -272,13 +287,13 @@ class Solver:
         None
         """
         plt.plot(self.train_loss)
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.title('Training Loss')
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.title("Training Loss")
 
         plt.plot(self.val_loss)
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.title('Validation Loss')
-        plt.legend(['Training Loss', 'Validation Loss'])
-        plt.show()  
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.title("Validation Loss")
+        plt.legend(["Training Loss", "Validation Loss"])
+        plt.show()

@@ -5,13 +5,14 @@ from torch_geometric.data import Data
 from torch_geometric.data import Batch as TorchBatch
 from torch_geometric.loader import DataLoader as TorchDataLoader
 
+
 class Collater:
     def __init__(self, dataset):
         self.dataset = dataset
 
     def __call__(self, batch) -> Any:
         elem = batch[0]
-        
+
         if isinstance(elem, torch.Tensor):
             return default_collate(batch)
         elif isinstance(elem, float):
@@ -38,8 +39,9 @@ class Collater:
 
         return batched_graphs, labels
 
+
 class CustomDataLoader(torch.utils.data.DataLoader):
-    def __init__( self, dataset, batch_size: int = 1, shuffle: bool = False, **kwargs):
+    def __init__(self, dataset, batch_size: int = 1, shuffle: bool = False, **kwargs):
         self.collator = Collater(dataset)
 
         super().__init__(

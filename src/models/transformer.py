@@ -4,7 +4,8 @@ import torch.nn as nn
 
 from typing import Tuple
 
-def get_positional_encoding(seq_length : int, d_model : int) -> torch.Tensor:
+
+def get_positional_encoding(seq_length: int, d_model: int) -> torch.Tensor:
     """
     Generates the positional encoding for the transformer input
 
@@ -33,12 +34,22 @@ def get_positional_encoding(seq_length : int, d_model : int) -> torch.Tensor:
     pos_encoding[:, 1::2] = cosines
 
     return pos_encoding.unsqueeze(0)
-    
+
+
 class TransformerBinaryClassifier(nn.Module):
     """
     Transformer-based binary classifier
     """
-    def __init__(self, d_model : int, nhead : int, num_layers : int, num_features : int, dropout : float = 0.1, dim_feedforward : int = 2048) -> None:
+
+    def __init__(
+        self,
+        d_model: int,
+        nhead: int,
+        num_layers: int,
+        num_features: int,
+        dropout: float = 0.1,
+        dim_feedforward: int = 2048,
+    ) -> None:
         """
         Parameters
         ----------
@@ -61,16 +72,21 @@ class TransformerBinaryClassifier(nn.Module):
         self.num_layers = num_layers
         self.num_features = num_features
 
-        self.pos_encoding = get_positional_encoding(1000, d_model) ## TODO: this is a hack and needs to be fixed 
+        self.pos_encoding = get_positional_encoding(
+            1000, d_model
+        )  ## TODO: this is a hack and needs to be fixed
 
         self.encoder = nn.Linear(num_features, d_model)
         self.dropout = nn.Dropout(dropout)
         self.transformer_encoder = nn.TransformerEncoder(
-                    nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward=dim_feedforward, dropout=dropout),
-                    num_layers)
+            nn.TransformerEncoderLayer(
+                d_model, nhead, dim_feedforward=dim_feedforward, dropout=dropout
+            ),
+            num_layers,
+        )
         self.decoder = nn.Linear(d_model, 2)
 
-    def forward(self, x : torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -83,7 +99,7 @@ class TransformerBinaryClassifier(nn.Module):
             Output of the transformer-based binary classifier of shape (batch_size, 2)
         """
         x = self.encoder(x) * math.sqrt(self.d_model)
-        x += self.pos_encoding[:, :x.size(1), :].type_as(x)
+        x += self.pos_encoding[:, : x.size(1), :].type_as(x)
         x = self.dropout(x)
         x = self.transformer_encoder(x)
         x = self.decoder(x[:, -1, :])

@@ -3,14 +3,11 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 from torch_geometric.data import Data
 
+
 class PoseGCN(torch.nn.Module):
     def __init__(
-            self,
-            num_features : int,
-            hidden_dim1 : int,
-            hidden_dim2 : int,
-            output_dim : int
-        ) -> None:
+        self, num_features: int, hidden_dim1: int, hidden_dim2: int, output_dim: int
+    ) -> None:
         """
         Parameters
         ----------
@@ -28,13 +25,13 @@ class PoseGCN(torch.nn.Module):
         self.conv2 = GCNConv(hidden_dim1, hidden_dim2)
         self.conv3 = GCNConv(hidden_dim2, output_dim)
 
-    def forward(self, data : Data) -> torch.Tensor:
+    def forward(self, data: Data) -> torch.Tensor:
         """
         Parameters
         ----------
         data : Data
-            Pose Graph  
-            
+            Pose Graph
+
         Returns
         -------
         torch.Tensor
