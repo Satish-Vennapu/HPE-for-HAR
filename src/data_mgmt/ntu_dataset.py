@@ -2,11 +2,11 @@ import torch
 import numpy as np
 import os
 import regex as re
-# from collections import Counter
+from collections import Counter
 
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset, Batch
-# from .dataloader import CustomDataLoader
+from .dataloader import DataLoader
 
 from typing import Dict
 
@@ -34,7 +34,7 @@ label_action =[
     # {"id" : 22, "A023" : "hand waving"},
     # {"id" : 23, "A024" : "kicking something"},
     # {"id" : 24, "A025" : "reach into pocket"},
-    {"id" : 1, "A026" : "hopping (one foot jumping)"},
+    {"id" : 2, "A026" : "hopping (one foot jumping)"},
     # {"id" : 26, "A027" : "jump up"},
     # {"id" : 27, "A028" : "make a phone call/answer phone"},
     # {"id" : 28, "A029" : "playing with phone/tablet"},
@@ -51,7 +51,7 @@ label_action =[
     # {"id" : 39, "A040" : "cross hands in front (say stop)"},
     # {"id" : 40, "A041" : "sneeze/cough"},
     # {"id" : 41, "A042" : "staggering"},
-    {"id" : 2, "A043" : "falling"},
+    {"id" : 1, "A043" : "falling"},
     # {"id" : 43, "A044" : "touch head"},
     # {"id" : 44, "A045" : "touch chest"},
     # {"id" : 45, "A046" : "touch back"},
@@ -59,6 +59,7 @@ label_action =[
     # {"id" : 47, "A048" : "nausea or vomiting condition"},
     # {"id" : 48, "A049" : "feeling warm"}
 ]
+        # Apply GCN layers
 
 file_name_regex = r"S(\d{3})C001P(\d{3})R(\d{3})A(\d{3})"
 file_name_regex = re.compile(file_name_regex)
@@ -233,28 +234,33 @@ class PoseGraphDataset(Dataset):
 
         return {"view1" : view1, "view2" : view2, "view3" : view3, "label" : label}
 
-# if __name__ == "__main__":
-#     dataset = PoseGraphDataset("../../../dataset/Python/raw_npy/")
+if __name__ == "__main__":
+    dataset = PoseGraphDataset("../../../dataset/Python/raw_npy/")
 
-#     train_size = int(0.8 * len(dataset))
-#     val_size = len(dataset) - train_size
-#     train_dataset, val_dataset = torch.utils.data.random_split(
-#         dataset, [train_size, val_size]
-#     )
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        dataset, [train_size, val_size]
+    )
 
-#     train_dataloader = CustomDataLoader(train_dataset, batch_size=4, shuffle=False)
+    train_dataloader = DataLoader(train_dataset, batch_size=4, shuffle=False)
     
-#     label_counts = Counter(dataset.labels)
+    label_counts = Counter(dataset.labels)
 
-#     # get unique labels
-#     unique_labels = len(list(set(dataset.labels)))
-#     print("Unique labels:", unique_labels)
+    # get unique labels
+    unique_labels = len(list(set(dataset.labels)))
+    print("Unique labels:", unique_labels)
 
-#     for label, count in label_counts.items():
-#         print(f"Label {label}: {count}")
+    for label, count in label_counts.items():
+        print(f"Label {label}: {count}")
 
-#     for idx, batch in enumerate(iter(train_dataloader)):
-        
-#         # batch_view1 = torch.cat([torch.stack(item[0]) for item in batch[0]])
-#         if idx == 0:
-#             break 
+    for idx, batch in enumerate(iter(train_dataloader)):
+        print(type(batch[0][0][0]))
+
+        batch_view1 = [Batch.from_data_list(item[0]) for item in batch[0]]
+        batch_view2 = [Batch.from_data_list(item[1]) for item in batch[0]]
+        batch_view3 = [Batch.from_data_list(item[2]) for item in batch[0]]
+
+        print(len(batch_view1))
+        if idx == 0:
+            break 

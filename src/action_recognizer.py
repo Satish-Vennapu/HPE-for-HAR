@@ -3,6 +3,8 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from itertools import cycle
 
+from torch_geometric.data import Batch
+
 from models.transformer import TransformerBinaryClassifier
 from models.gcn import PoseGCN
 
@@ -83,38 +85,27 @@ class ActionRecogniser(nn.Module):
         torch.Tensor
             Classification of the input sequence of keypoints
         """
-        classifications = []
-        for item in batch:
-            view1_embeddings = []
-            view2_embeddings = []
-            view3_embeddings = []
-            for idx, view in enumerate(item):
-                if idx == 0:
-                    for pose in view:
-                        view1_embeddings.append(self.gcn1(pose.to("cuda")))
-                elif idx == 1:
-                    for pose in view:
-                        view2_embeddings.append(self.gcn2(pose.to("cuda")))
-                elif idx == 2:
-                    for pose in view:
-                        view3_embeddings.append(self.gcn3(pose.to("cuda")))
-            
-            # Adjust the list size to the smallest list
-            min_length = min(len(view1_embeddings), len(view2_embeddings), len(view3_embeddings))
-            view1_embeddings = view1_embeddings[:min_length]
-            view2_embeddings = view2_embeddings[:min_length]
-            view3_embeddings = view3_embeddings[:min_length]
-                            
-            view1_embeddings = torch.stack(view1_embeddings)
-            view2_embeddings = torch.stack(view2_embeddings)
-            view3_embeddings = torch.stack(view3_embeddings)
+        batch_view1 = [Batch.from_data_list(item[0]) for item in batch]
+        batch_view2 = [Batch.from_data_list(item[1]) for item in batch]
+        batch_view3 = [Batch.from_data_list(item[2]) for item in batch]
 
-            aggregated_embeddings = (view1_embeddings + view2_embeddings + view3_embeddings) / 3
+        outputs = []
+        for i in range(len(batch_view1)):
+            view1_embedding = self.gcn1(batch_view1[i])
+            view2_embedding = self.gcn2(batch_view2[i])
+            view3_embedding = self.gcn3(batch_view3[i])
 
-            classification = self.transformer(aggregated_embeddings.unsqueeze(0).to("cuda"))
-            classifications.append(classification)
+            min_length = min(len(view1_embedding), len(view2_embedding), len(view3_embedding))
+            view1_embedding = view1_embedding[:min_length]
+            view2_embedding = view2_embedding[:min_length]
+            view3_embedding = view3_embedding[:min_length]
 
-        return torch.stack(classifications).squeeze(1)
+            aggregated_embeddings = (view1_embedding + view2_embedding + view3_embedding) / 3
+
+            output = self.transformer(aggregated_embeddings.unsqueeze(0).to("cuda"))
+            outputs.append(output)
+
+        return torch.stack(outputs).squeeze(1)
 
 class Solver:
     def __init__(

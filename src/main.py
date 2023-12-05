@@ -1,5 +1,6 @@
 import torch
 import argparse
+from collections import Counter
 
 from action_recognizer import Solver
 from data_mgmt.ntu_dataset import PoseGraphDataset
@@ -136,6 +137,14 @@ def load_dataset(dataset_folder):
     val_dataset, test_dataset = torch.utils.data.random_split(
         val_dataset, [len(val_dataset) - test_size, test_size], generator=generator
     )
+
+    label_counts = Counter(dataset.labels)
+
+    unique_labels = len(list(set(dataset.labels)))
+    print("Unique labels:", unique_labels)
+
+    for label, count in label_counts.items():
+        print(f"Label {label}: {count}")
 
     return train_dataset, val_dataset, test_dataset
 

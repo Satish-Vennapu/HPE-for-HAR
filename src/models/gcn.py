@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
-from torch_geometric.data import Data
-
+from torch_geometric.data import Data, Batch
+from torch_geometric.nn import global_mean_pool
 
 class PoseGCN(torch.nn.Module):
     def __init__(
@@ -25,7 +25,7 @@ class PoseGCN(torch.nn.Module):
         self.conv2 = GCNConv(hidden_dim1, hidden_dim2)
         self.conv3 = GCNConv(hidden_dim2, output_dim)
 
-    def forward(self, data: Data) -> torch.Tensor:
+    def forward(self, data: Batch) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -37,11 +37,13 @@ class PoseGCN(torch.nn.Module):
         torch.Tensor
             Output of the GCN of shape (batch_size, output_dim)
         """
-        x, edge_index = data.x, data.edge_index
+        x, edge_index, batch = data.x.to("cuda"), data.edge_index.to("cuda"), data.batch.to("cuda")
+
         x = self.conv1(x, edge_index)
         x = torch.relu(x)
         x = self.conv2(x, edge_index)
         x = torch.relu(x)
         x = self.conv3(x, edge_index)
-        x = torch.mean(x, dim=0)
+
+        x = global_mean_pool(x, batch)
         return x

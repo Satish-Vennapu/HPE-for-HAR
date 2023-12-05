@@ -48,7 +48,7 @@ class TransformerBinaryClassifier(nn.Module):
         num_layers: int,
         num_features: int,
         dropout: float = 0.1,
-        dim_feedforward: int = 2048,
+        dim_ff: int = 2048,
         num_classes: int = 2,
     ) -> None:
         """
@@ -81,7 +81,7 @@ class TransformerBinaryClassifier(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.transformer_encoder = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
-                d_model, nhead, dim_feedforward=dim_feedforward, dropout=dropout
+                d_model, nhead, dim_feedforward=dim_ff, dropout=dropout
             ),
             num_layers,
         )
