@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+from itertools import cycle
 
 from models.transformer import TransformerBinaryClassifier
 from models.gcn import PoseGCN
@@ -8,6 +9,7 @@ from models.gcn import PoseGCN
 from typing import Tuple
 
 from sklearn.metrics import precision_recall_curve, confusion_matrix, roc_curve, auc
+from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 import seaborn as sns
 
 class ActionRecogniser(nn.Module):
@@ -260,7 +262,6 @@ class Solver:
             loss = self.criterion(predictions, labels)
 
             correct = predictions.argmax(axis=1) == labels
-
             epoch_correct += correct.sum().item()
             epoch_count += correct.size(0)
 
@@ -327,17 +328,43 @@ class Solver:
         """
         self.model.eval()
         with torch.no_grad():
-            test_epoch_correct = 0
-            test_epoch_count = 0
-
+            predictions = []
+            labels = []
             for idx, batch in enumerate(iter(test_loader)):
-                predictions = self.model(batch[0])
-                labels = batch[1].to(self.device)
+                predictions.extend(self.model(batch[0]).argmax(axis=1).tolist())
+                labels.extend(batch[1].tolist())
 
-                correct = predictions.argmax(axis=1) == labels
+            print("Predictions:", predictions)
+            print("Labels:", labels)
+            
+            accuracy = accuracy_score(labels, predictions)
+            precision, recall, f1_score, _ = precision_recall_fscore_support(labels, predictions, average=None)
 
-                test_epoch_correct += correct.sum().item()
-                test_epoch_count += correct.size(0)
+            print(f"Accuracy: {accuracy}")
+            print(f"Precision: {precision}")
+            print(f"Recall: {recall}")
+            print(f"F1 Score: {f1_score}")
+
+            plt.figure(figsize=(8, 6))
+            colors = cycle(['aqua', 'darkorange', 'cornflowerblue'])
+            for i, color in zip(range(3), colors):
+                fpr, tpr, _ = roc_curve(labels, predictions, pos_label=i)
+                roc_auc = auc(fpr, tpr)
+                plt.plot(fpr, tpr, color=color, lw=2, label=f'ROC curve of class {i} (area = {roc_auc:.2f})')
+
+            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.title('Receiver Operating Characteristic for Multi-class')
+            plt.legend(loc="lower right")
+            plt.show()
+
+            cm = confusion_matrix(labels, predictions)
+            ax = sns.heatmap(cm, annot=True, fmt='g', cmap='Blues', xticklabels=[0, 1, 2], yticklabels=[0, 1, 2])
+            ax.set_xlabel("Predicted labels")
+            ax.set_ylabel("True labels")
+            ax.set_title("Confusion Matrix")
+            plt.show()        
 
     def _plot_losses(self) -> None:
         """
@@ -357,4 +384,4 @@ class Solver:
         plt.ylabel("Loss")
         plt.title("Validation Loss")
         plt.legend(["Training Loss", "Validation Loss"])
-        plt.show()
+        plt.show()    

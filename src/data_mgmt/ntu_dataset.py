@@ -6,7 +6,7 @@ import regex as re
 
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset, Batch
-from .dataloader import CustomDataLoader
+# from .dataloader import CustomDataLoader
 
 from typing import Dict
 

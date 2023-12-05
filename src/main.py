@@ -71,13 +71,13 @@ def parse_args():
     parser.add_argument(
         "--transformer_num_classes",
         type=int,
-        default=2,
+        default=3,
         help="Dimension of the feedforward network",
     )
     parser.add_argument(
         "--lr", 
         type=float, 
-        default=0.01, 
+        default=0.001, 
         help="Learning rate"
     )
     parser.add_argument(
@@ -89,7 +89,7 @@ def parse_args():
     parser.add_argument(
         "--epochs", 
         type=int, 
-        default=20, 
+        default=50, 
         help="Number of epochs"
     )
     parser.add_argument(
@@ -101,7 +101,7 @@ def parse_args():
     parser.add_argument(
         "--shuffle", 
         type=bool, 
-        default=False, 
+        default=True, 
         help="Shuffle the dataset"
     )
     parser.add_argument(
@@ -149,34 +149,39 @@ def main():
     print("Val dataset size:", len(val_dataset))
     print("Test dataset size:", len(test_dataset))
     
-    # train_dataloader = DataLoader(
-    #     train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-    # )
-    # val_dataloader = DataLoader(
-    #     val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-    # )
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+    )
+    val_dataloader = DataLoader(
+        val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+    )
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+    )
 
-    # solver = Solver(
-    #     gcn_num_features=args.gcn_num_features,
-    #     gcn_hidden_dim1=args.gcn_hidden_dim1,
-    #     gcn_hidden_dim2=args.gcn_hidden_dim2,
-    #     gcn_output_dim=args.gcn_output_dim,
-    #     transformer_d_model=args.transformer_d_model,
-    #     transformer_nhead=args.transformer_nhead,
-    #     transformer_num_layers=args.transformer_num_layers,
-    #     transformer_num_features=args.transformer_num_features,
-    #     transformer_dropout=args.transformer_dropout,
-    #     transformer_dim_feedforward=args.transformer_dim_feedforward,
-    #     transformer_num_classes=args.transformer_num_classes,
-    #     lr=args.lr,
-    # )
+    solver = Solver(
+        gcn_num_features=args.gcn_num_features,
+        gcn_hidden_dim1=args.gcn_hidden_dim1,
+        gcn_hidden_dim2=args.gcn_hidden_dim2,
+        gcn_output_dim=args.gcn_output_dim,
+        transformer_d_model=args.transformer_d_model,
+        transformer_nhead=args.transformer_nhead,
+        transformer_num_layers=args.transformer_num_layers,
+        transformer_num_features=args.transformer_num_features,
+        transformer_dropout=args.transformer_dropout,
+        transformer_dim_feedforward=args.transformer_dim_feedforward,
+        transformer_num_classes=args.transformer_num_classes,
+        lr=args.lr,
+    )
     
-    # solver.train(
-    #     train_dataloader,
-    #     val_dataloader,
-    #     epochs=args.epochs,
-    #     output_path=args.output_folder,
-    # )
+    solver.train(
+        train_dataloader,
+        val_dataloader,
+        epochs=args.epochs,
+        output_path=args.output_folder,
+    )
+
+    solver.test(test_dataloader)
 
 
 if __name__ == "__main__":
