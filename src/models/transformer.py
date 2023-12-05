@@ -49,6 +49,7 @@ class TransformerBinaryClassifier(nn.Module):
         num_features: int,
         dropout: float = 0.1,
         dim_feedforward: int = 2048,
+        num_classes: int = 2,
     ) -> None:
         """
         Parameters
@@ -84,7 +85,7 @@ class TransformerBinaryClassifier(nn.Module):
             ),
             num_layers,
         )
-        self.decoder = nn.Linear(d_model, 2)
+        self.decoder = nn.Linear(d_model, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -96,7 +97,7 @@ class TransformerBinaryClassifier(nn.Module):
         Returns
         -------
         torch.Tensor
-            Output of the transformer-based binary classifier of shape (batch_size, 2)
+            Output of the transformer-based binary classifier of shape (batch_size, num_classes)
         """
         x = self.encoder(x) * math.sqrt(self.d_model)
         x += self.pos_encoding[:, : x.size(1), :].type_as(x)

@@ -1,10 +1,9 @@
-from action_recognizer import Solver
-from data_mgmt.dataset import PoseGraphDataset
-
 import torch
-from data_mgmt.dataloader import CustomDataLoader
 import argparse
 
+from action_recognizer import Solver
+from data_mgmt.ntu_dataset import PoseGraphDataset
+from data_mgmt.dataloader import CustomDataLoader
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train the model")
@@ -42,13 +41,13 @@ def parse_args():
     parser.add_argument(
         "--transformer_nhead", 
         type=int, 
-        default=32, 
+        default=16, 
         help="Number of attention heads"
     )
     parser.add_argument(
         "--transformer_num_layers",
         type=int,
-        default=16,
+        default=8,
         help="Number of transformer encoder layers",
     )
     parser.add_argument(
@@ -70,6 +69,12 @@ def parse_args():
         help="Dimension of the feedforward network",
     )
     parser.add_argument(
+        "--transformer_num_classes",
+        type=int,
+        default=2,
+        help="Dimension of the feedforward network",
+    )
+    parser.add_argument(
         "--lr", 
         type=float, 
         default=0.001, 
@@ -78,7 +83,7 @@ def parse_args():
     parser.add_argument(
         "--dataset_folder",
         type=str,
-        default="../data/",
+        default="../../dataset/Python/raw_npy/",
         help="Path to the dataset folder",
     )
     parser.add_argument(
@@ -90,7 +95,7 @@ def parse_args():
     parser.add_argument(
         "--batch_size", 
         type=int, 
-        default=32, 
+        default=16, 
         help="Batch size"
     )
     parser.add_argument(
@@ -151,6 +156,7 @@ def main():
         transformer_num_features=args.transformer_num_features,
         transformer_dropout=args.transformer_dropout,
         transformer_dim_feedforward=args.transformer_dim_feedforward,
+        transformer_num_classes=args.transformer_num_classes,
         lr=args.lr,
     )
     
@@ -158,7 +164,7 @@ def main():
         train_dataloader,
         val_dataloader,
         epochs=args.epochs,
-        output_folder=args.output_folder,
+        output_path=args.output_folder,
     )
 
 

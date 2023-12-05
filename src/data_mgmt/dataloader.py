@@ -1,10 +1,6 @@
 import torch
 from torch.utils.data.dataloader import default_collate
 from typing import Any, List, Mapping, Sequence, Tuple
-from torch_geometric.data import Data
-from torch_geometric.data import Batch as TorchBatch
-from torch_geometric.loader import DataLoader as TorchDataLoader
-
 
 class Collater:
     def __init__(self, dataset):

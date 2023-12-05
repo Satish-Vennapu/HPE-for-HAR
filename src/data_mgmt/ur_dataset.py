@@ -157,15 +157,17 @@ class PoseGraphDataset(Dataset):
         return poses, label
 
 
-# if __name__ == "__main__":
-#     dataset = PoseGraphDataset("./data/")
+if __name__ == "__main__":
+    dataset = PoseGraphDataset("../../data/")
 
-#     train_size = int(0.8 * len(dataset))
-#     val_size = len(dataset) - train_size
-#     train_dataset, val_dataset = torch.utils.data.random_split(
-#         dataset, [train_size, val_size]
-#     )
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        dataset, [train_size, val_size]
+    )
 
-#     train_dataloader = CustomDataLoader(train_dataset, batch_size=4, shuffle=False)
-#     # val_dataloader = CustomDataLoader(val_dataset, batch_size=4, shuffle=True)
+    train_dataloader = CustomDataLoader(train_dataset, batch_size=4, shuffle=False)
+
+    print(len(val_dataset))
+    # val_dataloader = CustomDataLoader(val_dataset, batch_size=4, shuffle=True)
 

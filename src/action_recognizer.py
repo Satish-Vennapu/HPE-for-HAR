@@ -21,6 +21,7 @@ class ActionRecogniser(nn.Module):
         transformer_num_features: int,
         transformer_dropout: float = 0.1,
         transformer_dim_feedforward: int = 2048,
+        transformer_num_classes: int = 2,
     ) -> None:
         """
         Parameters
@@ -57,6 +58,7 @@ class ActionRecogniser(nn.Module):
             transformer_num_features,
             transformer_dropout,
             transformer_dim_feedforward,
+            num_classes=transformer_num_classes
         )
 
     def forward(self, videos: torch.Tensor) -> torch.Tensor:
@@ -83,7 +85,6 @@ class ActionRecogniser(nn.Module):
 
         return torch.stack(classifications).squeeze(1)
 
-
 class Solver:
     def __init__(
         self,
@@ -97,6 +98,7 @@ class Solver:
         transformer_num_features: int,
         transformer_dropout: float = 0.1,
         transformer_dim_feedforward: int = 2048,
+        transformer_num_classes: int = 2,
         lr: float = 0.001,
     ) -> None:
         """
@@ -140,6 +142,7 @@ class Solver:
             transformer_num_features,
             transformer_dropout,
             transformer_dim_feedforward,
+            transformer_num_classes
         ).to(self.device)
 
         print(sum(p.numel() for p in self.model.parameters()))
@@ -197,7 +200,7 @@ class Solver:
 
             if epoch_val_loss < best_val_loss:
                 best_val_loss = epoch_val_loss
-                torch.save(self.model.state_dict(), "best_model.pt")
+                torch.save(self.model.state_dict(), output_path+"best_model.pt")
 
         self._plot_losses()
 
