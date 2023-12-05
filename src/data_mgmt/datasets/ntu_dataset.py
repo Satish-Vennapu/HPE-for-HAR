@@ -2,15 +2,13 @@ import torch
 import numpy as np
 import os
 import regex as re
-from collections import Counter
 
 from torch_geometric.data import Data
-from torch_geometric.data import Dataset, Batch
-from .dataloader import DataLoader
+from torch_geometric.data import Dataset
 
 from typing import Dict
 
-label_action =[
+label_action = [
     # {"id" : 0, "A001" : "drink water"},
     # {"id" : 1, "A002" : "eating"},
     # {"id" : 2, "A003" : "brushing teeth"},
@@ -19,7 +17,7 @@ label_action =[
     # {"id" : 5, "A006" : "pickup"},
     # {"id" : 6, "A007" : "throw"},
     # {"id" : 7, "A008" : "sitting down"},
-    {"id" : 0, "A009" : "standing up"},
+    {"id": 0, "A009": "standing up"},
     # {"id" : 9, "A010" : "clapping"},
     # {"id" : 10, "A011" : "reading"},
     # {"id" : 11, "A012" : "writing"},
@@ -28,13 +26,12 @@ label_action =[
     # {"id" : 14, "A015" : "take off jacket"},
     # {"id" : 15, "A016" : "wear a shoe"},
     # {"id" : 16, "A017" : "take off a shoe"},
-    # {"id" : 17, "A018" : "wear on glasses"},            
-    
+    # {"id" : 17, "A018" : "wear on glasses"},
     # {"id" : 21, "A022" : "cheer up"},
     # {"id" : 22, "A023" : "hand waving"},
     # {"id" : 23, "A024" : "kicking something"},
     # {"id" : 24, "A025" : "reach into pocket"},
-    {"id" : 2, "A026" : "hopping (one foot jumping)"},
+    {"id": 2, "A026": "hopping (one foot jumping)"},
     # {"id" : 26, "A027" : "jump up"},
     # {"id" : 27, "A028" : "make a phone call/answer phone"},
     # {"id" : 28, "A029" : "playing with phone/tablet"},
@@ -51,7 +48,7 @@ label_action =[
     # {"id" : 39, "A040" : "cross hands in front (say stop)"},
     # {"id" : 40, "A041" : "sneeze/cough"},
     # {"id" : 41, "A042" : "staggering"},
-    {"id" : 1, "A043" : "falling"},
+    {"id": 1, "A043": "falling"},
     # {"id" : 43, "A044" : "touch head"},
     # {"id" : 44, "A045" : "touch chest"},
     # {"id" : 45, "A046" : "touch back"},
@@ -59,10 +56,10 @@ label_action =[
     # {"id" : 47, "A048" : "nausea or vomiting condition"},
     # {"id" : 48, "A049" : "feeling warm"}
 ]
-        # Apply GCN layers
 
 file_name_regex = r"S(\d{3})C001P(\d{3})R(\d{3})A(\d{3})"
 file_name_regex = re.compile(file_name_regex)
+
 
 def get_label(file_name: str) -> int:
     label = file_name[-4:]
@@ -94,21 +91,39 @@ def is_valid_file(file_name: str, skip: int = 11) -> bool:
     if file_name_regex.match(file_name) is None or get_label(file_name) == -1:
         return False
 
-    return npy_file 
+    return npy_file
+
 
 def get_edge_index():
     POSE_CONNECTIONS = [
-    (3, 2),
-    (20, 8), (8, 9), (9, 10), (10, 11), (11, 24), (11, 23),
-    (20, 4), (4, 5), (5, 6), (6, 7), (7, 21), (7, 22),
-    (0, 1), (1, 20),
-    (0, 16), (0, 12),
-    (16, 17), (17, 18), (18, 19),
-    (12, 13), (13, 14), (14, 15)
+        (3, 2),
+        (20, 8),
+        (8, 9),
+        (9, 10),
+        (10, 11),
+        (11, 24),
+        (11, 23),
+        (20, 4),
+        (4, 5),
+        (5, 6),
+        (6, 7),
+        (7, 21),
+        (7, 22),
+        (0, 1),
+        (1, 20),
+        (0, 16),
+        (0, 12),
+        (16, 17),
+        (17, 18),
+        (18, 19),
+        (12, 13),
+        (13, 14),
+        (14, 15),
     ]
     edge_index = torch.tensor(POSE_CONNECTIONS, dtype=torch.long).t().contiguous()
 
     return edge_index
+
 
 def get_multiview_files(dataset_folder: str) -> list:
     """
@@ -132,7 +147,10 @@ def get_multiview_files(dataset_folder: str) -> list:
                 file_name = file.split("/")[-1].split(".")[0]
 
                 file_name = file_name.split("C001")
-                other_views = [file_name[0] + "C002" + file_name[1], file_name[0] + "C003" + file_name[1]]
+                other_views = [
+                    file_name[0] + "C002" + file_name[1],
+                    file_name[0] + "C003" + file_name[1],
+                ]
 
                 not_exist = False
                 for view in other_views:
@@ -142,12 +160,15 @@ def get_multiview_files(dataset_folder: str) -> list:
                 if not_exist:
                     continue
 
-                other_views.append(file_name[0] + "C001" + file_name[1]) 
+                other_views.append(file_name[0] + "C001" + file_name[1])
                 for i in range(len(other_views)):
-                    other_views[i] = os.path.join(root, other_views[i] + ".skeleton.npy")
+                    other_views[i] = os.path.join(
+                        root, other_views[i] + ".skeleton.npy"
+                    )
                 multiview_files.append(other_views)
 
     return multiview_files
+
 
 class PoseGraphDataset(Dataset):
     """
@@ -172,13 +193,13 @@ class PoseGraphDataset(Dataset):
                 kps = file_data["skel_body0"]
                 pose_graphs = self._create_pose_graph(kps)
 
-                if "C001" in file:        
+                if "C001" in file:
                     self.view1.append(pose_graphs)
                 elif "C002" in file:
                     self.view2.append(pose_graphs)
                 elif "C003" in file:
                     self.view3.append(pose_graphs)
-            
+
             self.labels.append(get_label(file_name))
 
     def _create_pose_graph(self, keypoints: torch.Tensor) -> Data:
@@ -232,35 +253,4 @@ class PoseGraphDataset(Dataset):
         view3 = self.view3[index]
         label = self.labels[index]
 
-        return {"view1" : view1, "view2" : view2, "view3" : view3, "label" : label}
-
-if __name__ == "__main__":
-    dataset = PoseGraphDataset("../../../dataset/Python/raw_npy/")
-
-    train_size = int(0.8 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset, [train_size, val_size]
-    )
-
-    train_dataloader = DataLoader(train_dataset, batch_size=4, shuffle=False)
-    
-    label_counts = Counter(dataset.labels)
-
-    # get unique labels
-    unique_labels = len(list(set(dataset.labels)))
-    print("Unique labels:", unique_labels)
-
-    for label, count in label_counts.items():
-        print(f"Label {label}: {count}")
-
-    for idx, batch in enumerate(iter(train_dataloader)):
-        print(type(batch[0][0][0]))
-
-        batch_view1 = [Batch.from_data_list(item[0]) for item in batch[0]]
-        batch_view2 = [Batch.from_data_list(item[1]) for item in batch[0]]
-        batch_view3 = [Batch.from_data_list(item[2]) for item in batch[0]]
-
-        print(len(batch_view1))
-        if idx == 0:
-            break 
+        return {"view1": view1, "view2": view2, "view3": view3, "label": label}

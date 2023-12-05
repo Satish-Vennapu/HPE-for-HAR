@@ -2,18 +2,18 @@ import torch
 import argparse
 from collections import Counter
 
-from action_recognizer import Solver
-from data_mgmt.ntu_dataset import PoseGraphDataset
-from data_mgmt.dataloader import DataLoader
+from solver import Solver
+from utils.logger import Logger
+from data_mgmt.datasets.ntu_dataset import PoseGraphDataset
+from data_mgmt.dataloaders.multi_dataloader import DataLoader as MultiDataLoader
+from data_mgmt.dataloaders.single_dataloader import DataLoader as SingleDataLoader
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train the model")
 
     parser.add_argument(
-        "--gcn_num_features", 
-        type=int, 
-        default=3, 
-        help="Number of features in the GCN"
+        "--gcn_num_features", type=int, default=3, help="Number of features in the GCN"
     )
     parser.add_argument(
         "--gcn_hidden_dim1",
@@ -40,10 +40,7 @@ def parse_args():
         help="Dimension of the input embedding",
     )
     parser.add_argument(
-        "--transformer_nhead", 
-        type=int, 
-        default=16, 
-        help="Number of attention heads"
+        "--transformer_nhead", type=int, default=16, help="Number of attention heads"
     )
     parser.add_argument(
         "--transformer_num_layers",
@@ -58,10 +55,7 @@ def parse_args():
         help="Number of features in the input sequence",
     )
     parser.add_argument(
-        "--transformer_dropout", 
-        type=float, 
-        default=0.1, 
-        help="Dropout rate"
+        "--transformer_dropout", type=float, default=0.1, help="Dropout rate"
     )
     parser.add_argument(
         "--transformer_dim_feedforward",
@@ -75,35 +69,17 @@ def parse_args():
         default=3,
         help="Dimension of the feedforward network",
     )
-    parser.add_argument(
-        "--lr", 
-        type=float, 
-        default=0.001, 
-        help="Learning rate"
-    )
+    parser.add_argument("--lr", type=float, default=0.00005, help="Learning rate")
     parser.add_argument(
         "--dataset_folder",
         type=str,
         default="../../dataset/Python/raw_npy/",
         help="Path to the dataset folder",
     )
+    parser.add_argument("--epochs", type=int, default=50, help="Number of epochs")
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
     parser.add_argument(
-        "--epochs", 
-        type=int, 
-        default=50, 
-        help="Number of epochs"
-    )
-    parser.add_argument(
-        "--batch_size", 
-        type=int, 
-        default=16, 
-        help="Batch size"
-    )
-    parser.add_argument(
-        "--shuffle", 
-        type=bool, 
-        default=True, 
-        help="Shuffle the dataset"
+        "--shuffle", type=bool, default=True, help="Shuffle the dataset"
     )
     parser.add_argument(
         "--output_folder",
@@ -111,24 +87,29 @@ def parse_args():
         default="../output/",
         help="Path to the output folder",
     )
-
+    parser.add_argument(
+        "--single_view",
+        action="store_true",
+        help="Use single view",
+    )
     args = parser.parse_args()
     return args
 
 
-def load_dataset(dataset_folder):
+def load_dataset(dataset_folder, logger):
     dataset = PoseGraphDataset(dataset_folder, skip=11)
 
     if len(dataset) > 0:
-        print("Dataset loaded successfully")
-        print("Number of samples:", len(dataset))
+        logger.info("Dataset loaded successfully.")
+        logger.info(f"Dataset size: {len(dataset)}")
     else:
-        print("Dataset not loaded. Please check the dataset folder.")
+        logger.error("Dataset loading failed.")
+        logger.info("Check if the dataset folder is correct.")
         exit()
 
     train_size = int(0.75 * len(dataset))
     val_size = len(dataset) - train_size
-    
+
     generator = torch.Generator().manual_seed(42)
     train_dataset, val_dataset = torch.utils.data.random_split(
         dataset, [train_size, val_size], generator=generator
@@ -139,34 +120,48 @@ def load_dataset(dataset_folder):
     )
 
     label_counts = Counter(dataset.labels)
-
     unique_labels = len(list(set(dataset.labels)))
-    print("Unique labels:", unique_labels)
+    logger.info(f"Number of unique labels: {unique_labels}")
 
     for label, count in label_counts.items():
-        print(f"Label {label}: {count}")
+        logger.info(f"Label: {label}, Count: {count}")
 
     return train_dataset, val_dataset, test_dataset
 
 
 def main():
     args = parse_args()
+    logger = Logger("../config/logger.ini").get_logger()
 
-    train_dataset, val_dataset, test_dataset = load_dataset(args.dataset_folder) 
+    logger.info("\n")
+    logger.info("Loading the dataset...")
+    train_dataset, val_dataset, test_dataset = load_dataset(args.dataset_folder, logger)
 
-    print("Train dataset size:", len(train_dataset))
-    print("Val dataset size:", len(val_dataset))
-    print("Test dataset size:", len(test_dataset))
-    
-    train_dataloader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-    )
-    val_dataloader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-    )
-    test_dataloader = DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-    )
+    logger.info(f"Training dataset size: {len(train_dataset)}")
+    logger.info(f"Validation dataset size: {len(val_dataset)}")
+    logger.info(f"Testing dataset size: {len(test_dataset)}")
+
+    logger.info(f"Model type: {'Single View' if args.single_view else 'Multi View'}")
+    if not args.single_view:
+        train_dataloader = MultiDataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+        )
+        val_dataloader = MultiDataLoader(
+            val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+        )
+        test_dataloader = MultiDataLoader(
+            test_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+        )
+    else:
+        train_dataloader = SingleDataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+        )
+        val_dataloader = SingleDataLoader(
+            val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+        )
+        test_dataloader = SingleDataLoader(
+            test_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+        )
 
     solver = Solver(
         gcn_num_features=args.gcn_num_features,
@@ -181,8 +176,16 @@ def main():
         transformer_dim_feedforward=args.transformer_dim_feedforward,
         transformer_num_classes=args.transformer_num_classes,
         lr=args.lr,
+        is_single_view=args.single_view,
+        logger=logger,
     )
-    
+
+    logger.info("")
+    logger.info(f"Batch size: {args.batch_size}")
+    logger.info(f"Number of epochs: {args.epochs}")
+    logger.info(f"Learning rate: {args.lr}")
+
+    logger.info("Training the model. Please wait...")
     solver.train(
         train_dataloader,
         val_dataloader,
@@ -190,6 +193,8 @@ def main():
         output_path=args.output_folder,
     )
 
+    logger.info("")
+    logger.info("Testing model on the test dataset...")
     solver.test(test_dataloader)
 
 

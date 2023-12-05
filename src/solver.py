@@ -2,110 +2,15 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from itertools import cycle
+from logging import Logger
 
-from torch_geometric.data import Batch
-
-from models.transformer import TransformerBinaryClassifier
-from models.gcn import PoseGCN
-
+from models.action_recognizer import ActionRecognizer
 from typing import Tuple
 
-from sklearn.metrics import precision_recall_curve, confusion_matrix, roc_curve, auc
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 import seaborn as sns
 
-class ActionRecogniser(nn.Module):
-    def __init__(
-        self,
-        gcn_num_features: int,
-        gcn_hidden_dim1: int,
-        gcn_hidden_dim2: int,
-        gcn_output_dim: int,
-        transformer_d_model: int,
-        transformer_nhead: int,
-        transformer_num_layers: int,
-        transformer_num_features: int,
-        transformer_dropout: float = 0.1,
-        transformer_dim_feedforward: int = 2048,
-        transformer_num_classes: int = 2,
-    ) -> None:
-        """
-        Parameters
-        ----------
-        gcn_num_features : int
-            Number of features in the input sequence
-        gcn_hidden_dim1 : int
-            Dimension of the first hidden layer of the GCN
-        gcn_hidden_dim2 : int
-            Dimension of the second hidden layer of the GCN
-        gcn_output_dim : int
-            Dimension of the output layer of the GCN
-        transformer_d_model : int
-            Dimension of the input embedding
-        transformer_nhead : int
-            Number of attention heads
-        transformer_num_layers : int
-            Number of transformer encoder layers
-        transformer_num_features : int
-            Number of features in the input sequence
-        transformer_dropout : float, optional
-            Dropout rate, by default 0.1
-        transformer_dim_feedforward : int, optional
-            Dimension of the feedforward network, by default 2048
-        """
-        super(ActionRecogniser, self).__init__()
-        self.gcn1 = PoseGCN(
-            gcn_num_features, gcn_hidden_dim1, gcn_hidden_dim2, gcn_output_dim
-        )
-        self.gcn2 = PoseGCN(
-            gcn_num_features, gcn_hidden_dim1, gcn_hidden_dim2, gcn_output_dim
-        )
-        self.gcn3 = PoseGCN(
-            gcn_num_features, gcn_hidden_dim1, gcn_hidden_dim2, gcn_output_dim
-        )
-        self.transformer = TransformerBinaryClassifier(
-            transformer_d_model,
-            transformer_nhead,
-            transformer_num_layers,
-            transformer_num_features,
-            transformer_dropout,
-            transformer_dim_feedforward,
-            num_classes=transformer_num_classes
-        )
-
-    def forward(self, batch: torch.Tensor) -> torch.Tensor:
-        """
-        Parameters
-        ----------
-        kps : torch.Tensor
-            Input sequence of keypoints
-
-        Returns
-        -------
-        torch.Tensor
-            Classification of the input sequence of keypoints
-        """
-        batch_view1 = [Batch.from_data_list(item[0]) for item in batch]
-        batch_view2 = [Batch.from_data_list(item[1]) for item in batch]
-        batch_view3 = [Batch.from_data_list(item[2]) for item in batch]
-
-        outputs = []
-        for i in range(len(batch_view1)):
-            view1_embedding = self.gcn1(batch_view1[i])
-            view2_embedding = self.gcn2(batch_view2[i])
-            view3_embedding = self.gcn3(batch_view3[i])
-
-            min_length = min(len(view1_embedding), len(view2_embedding), len(view3_embedding))
-            view1_embedding = view1_embedding[:min_length]
-            view2_embedding = view2_embedding[:min_length]
-            view3_embedding = view3_embedding[:min_length]
-
-            aggregated_embeddings = (view1_embedding + view2_embedding + view3_embedding) / 3
-
-            output = self.transformer(aggregated_embeddings.unsqueeze(0).to("cuda"))
-            outputs.append(output)
-
-        return torch.stack(outputs).squeeze(1)
 
 class Solver:
     def __init__(
@@ -121,7 +26,9 @@ class Solver:
         transformer_dropout: float = 0.1,
         transformer_dim_feedforward: int = 2048,
         transformer_num_classes: int = 2,
-        lr: float = 0.001,
+        lr: float = 5e-5,
+        is_single_view: bool = True,
+        logger: Logger = None,
     ) -> None:
         """
         Parameters
@@ -147,13 +54,15 @@ class Solver:
         transformer_dim_feedforward : int, optional
             Dimension of the feedforward network, by default 2048
         lr : float, optional
-            Learning rate, by default 0.001
+            Learning rate, by default 0.00005
         """
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print("Device:", self.device)
+        self.logger = logger
 
-        self.model = ActionRecogniser(
+        self.logger.info(f"Selected device: {self.device}")
+
+        self.model = ActionRecognizer(
             gcn_num_features,
             gcn_hidden_dim1,
             gcn_hidden_dim2,
@@ -164,15 +73,21 @@ class Solver:
             transformer_num_features,
             transformer_dropout,
             transformer_dim_feedforward,
-            transformer_num_classes
+            transformer_num_classes,
+            is_single_view,
         ).to(self.device)
 
-        print("Number of parameters :", sum(p.numel() for p in self.model.parameters()))
+        self.logger.info(f"Model: {self.model}")
+        self.logger.info(
+            f"Number of parameters: {sum(p.numel() for p in self.model.parameters())}"
+        )
         self.lr = lr
 
         self.criterion = nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=0.95)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(
+            self.optimizer, step_size=1, gamma=0.95
+        )
 
         self.train_loss = []
         self.val_loss = []
@@ -203,26 +118,25 @@ class Solver:
         torch.manual_seed(0)
         best_val_loss = float("inf")
 
-        print("\nTraining started. Please wait...")
         for epoch in range(epochs):
             epoch_loss, epoch_correct, epoch_count = self.train_one_epoch(train_loader)
             self.train_loss.append(epoch_loss)
-            print(
-                f"\nepoch: {epoch} | epoch loss: {epoch_loss}        | epoch accuracy: {epoch_correct / epoch_count}"
+            self.logger.info(
+                f"epoch: {epoch} | epoch train loss: {epoch_loss:.4f}   | epoch train accuracy: {epoch_correct / epoch_count:.4f}"
             )
 
             epoch_val_loss, epoch_val_correct, epoch_val_count = self.evaluate(
                 val_loader
             )
             self.val_loss.append(epoch_val_loss)
-            print(
-                f"epoch: {epoch} | epoch val loss: {epoch_val_loss}   | epoch val accuracy: {epoch_val_correct / epoch_val_count}"
+            self.logger.info(
+                f"epoch: {epoch} | epoch val   loss: {epoch_val_loss:.4f}   | epoch val accuracy: {epoch_val_correct / epoch_val_count:.4f}"
             )
-            # self.scheduler.step()
+            self.scheduler.step()
 
             if epoch_val_loss < best_val_loss:
                 best_val_loss = epoch_val_loss
-                torch.save(self.model.state_dict(), output_path+"best_model.pt")
+                torch.save(self.model.state_dict(), output_path + "best_model.pt")
 
         self._plot_losses()
 
@@ -301,7 +215,7 @@ class Solver:
                 val_epoch_loss += val_loss.item()
 
         return val_epoch_loss, val_epoch_correct, val_epoch_count
-    
+
     def test(self, test_loader: torch.utils.data.DataLoader) -> Tuple[float, int, int]:
         """
         Evaluates the model
@@ -325,37 +239,52 @@ class Solver:
                 predictions.extend(self.model(batch[0]).argmax(axis=1).tolist())
                 labels.extend(batch[1].tolist())
 
-            print("Predictions:", predictions)
-            print("Labels:", labels)
-            
-            accuracy = accuracy_score(labels, predictions)
-            precision, recall, f1_score, _ = precision_recall_fscore_support(labels, predictions, average=None)
+            self.logger.info(f"Predictions: {predictions}")
+            self.logger.info(f"Labels: {labels}")
 
-            print(f"Accuracy: {accuracy}")
-            print(f"Precision: {precision}")
-            print(f"Recall: {recall}")
-            print(f"F1 Score: {f1_score}")
+            accuracy = accuracy_score(labels, predictions)
+            precision, recall, f1_score, _ = precision_recall_fscore_support(
+                labels, predictions, average=None
+            )
+
+            self.logger.info(f"Accuracy: {accuracy:.4f}")
+            self.logger.info(f"Precision: {precision}")
+            self.logger.info(f"Recall: {recall}")
+            self.logger.info(f"F1 Score: {f1_score}")
 
             plt.figure(figsize=(8, 6))
-            colors = cycle(['aqua', 'darkorange', 'cornflowerblue'])
+            colors = cycle(["aqua", "darkorange", "cornflowerblue"])
             for i, color in zip(range(3), colors):
                 fpr, tpr, _ = roc_curve(labels, predictions, pos_label=i)
                 roc_auc = auc(fpr, tpr)
-                plt.plot(fpr, tpr, color=color, lw=2, label=f'ROC curve of class {i} (area = {roc_auc:.2f})')
+                plt.plot(
+                    fpr,
+                    tpr,
+                    color=color,
+                    lw=2,
+                    label=f"ROC curve of class {i} (area = {roc_auc:.2f})",
+                )
 
-            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.title('Receiver Operating Characteristic for Multi-class')
+            plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+            plt.xlabel("False Positive Rate")
+            plt.ylabel("True Positive Rate")
+            plt.title("Receiver Operating Characteristic for Multi-class")
             plt.legend(loc="lower right")
             plt.show()
 
             cm = confusion_matrix(labels, predictions)
-            ax = sns.heatmap(cm, annot=True, fmt='g', cmap='Blues', xticklabels=[0, 1, 2], yticklabels=[0, 1, 2])
+            ax = sns.heatmap(
+                cm,
+                annot=True,
+                fmt="g",
+                cmap="Blues",
+                xticklabels=[0, 1, 2],
+                yticklabels=[0, 1, 2],
+            )
             ax.set_xlabel("Predicted labels")
             ax.set_ylabel("True labels")
             ax.set_title("Confusion Matrix")
-            plt.show()        
+            plt.show()
 
     def _plot_losses(self) -> None:
         """
@@ -375,4 +304,4 @@ class Solver:
         plt.ylabel("Loss")
         plt.title("Validation Loss")
         plt.legend(["Training Loss", "Validation Loss"])
-        plt.show()    
+        plt.show()

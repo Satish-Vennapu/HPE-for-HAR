@@ -2,6 +2,7 @@ import torch
 from torch.utils.data.dataloader import default_collate
 from typing import Any, List, Mapping, Sequence, Tuple
 
+
 class Collater:
     def __init__(self, dataset):
         self.dataset = dataset

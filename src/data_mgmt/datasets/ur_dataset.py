@@ -170,4 +170,3 @@ if __name__ == "__main__":
 
     print(len(val_dataset))
     # val_dataloader = CustomDataLoader(val_dataset, batch_size=4, shuffle=True)
-
