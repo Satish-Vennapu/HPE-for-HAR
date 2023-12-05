@@ -3,7 +3,7 @@ import argparse
 
 from action_recognizer import Solver
 from data_mgmt.ntu_dataset import PoseGraphDataset
-from data_mgmt.dataloader import CustomDataLoader
+from data_mgmt.dataloader import DataLoader
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train the model")
@@ -77,7 +77,7 @@ def parse_args():
     parser.add_argument(
         "--lr", 
         type=float, 
-        default=0.001, 
+        default=0.01, 
         help="Learning rate"
     )
     parser.add_argument(
@@ -125,47 +125,58 @@ def load_dataset(dataset_folder):
         print("Dataset not loaded. Please check the dataset folder.")
         exit()
 
-    train_size = int(0.8 * len(dataset))
+    train_size = int(0.75 * len(dataset))
     val_size = len(dataset) - train_size
+    
+    generator = torch.Generator().manual_seed(42)
     train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset, [train_size, val_size]
+        dataset, [train_size, val_size], generator=generator
+    )
+    test_size = int(0.25 * len(val_dataset))
+    val_dataset, test_dataset = torch.utils.data.random_split(
+        val_dataset, [len(val_dataset) - test_size, test_size], generator=generator
     )
 
-    return train_dataset, val_dataset
+    return train_dataset, val_dataset, test_dataset
 
 
 def main():
     args = parse_args()
 
-    train_dataset, val_dataset = load_dataset(args.dataset_folder)
-    train_dataloader = CustomDataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-    )
-    val_dataloader = CustomDataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-    )
+    train_dataset, val_dataset, test_dataset = load_dataset(args.dataset_folder) 
 
-    solver = Solver(
-        gcn_num_features=args.gcn_num_features,
-        gcn_hidden_dim1=args.gcn_hidden_dim1,
-        gcn_hidden_dim2=args.gcn_hidden_dim2,
-        gcn_output_dim=args.gcn_output_dim,
-        transformer_d_model=args.transformer_d_model,
-        transformer_nhead=args.transformer_nhead,
-        transformer_num_layers=args.transformer_num_layers,
-        transformer_num_features=args.transformer_num_features,
-        transformer_dropout=args.transformer_dropout,
-        transformer_dim_feedforward=args.transformer_dim_feedforward,
-        transformer_num_classes=args.transformer_num_classes,
-        lr=args.lr,
-    )
+    print("Train dataset size:", len(train_dataset))
+    print("Val dataset size:", len(val_dataset))
+    print("Test dataset size:", len(test_dataset))
     
-    solver.train(
-        train_dataloader,
-        val_dataloader,
-        epochs=args.epochs,
-        output_path=args.output_folder,
-    )
+    # train_dataloader = DataLoader(
+    #     train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+    # )
+    # val_dataloader = DataLoader(
+    #     val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+    # )
+
+    # solver = Solver(
+    #     gcn_num_features=args.gcn_num_features,
+    #     gcn_hidden_dim1=args.gcn_hidden_dim1,
+    #     gcn_hidden_dim2=args.gcn_hidden_dim2,
+    #     gcn_output_dim=args.gcn_output_dim,
+    #     transformer_d_model=args.transformer_d_model,
+    #     transformer_nhead=args.transformer_nhead,
+    #     transformer_num_layers=args.transformer_num_layers,
+    #     transformer_num_features=args.transformer_num_features,
+    #     transformer_dropout=args.transformer_dropout,
+    #     transformer_dim_feedforward=args.transformer_dim_feedforward,
+    #     transformer_num_classes=args.transformer_num_classes,
+    #     lr=args.lr,
+    # )
+    
+    # solver.train(
+    #     train_dataloader,
+    #     val_dataloader,
+    #     epochs=args.epochs,
+    #     output_path=args.output_folder,
+    # )
 
 
 if __name__ == "__main__":

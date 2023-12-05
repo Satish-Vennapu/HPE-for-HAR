@@ -25,18 +25,21 @@ class Collater:
         raise TypeError(f"DataLoader found invalid type: '{type(elem)}'")
 
     def collate_fn(self, batch: List[Any]) -> Any:
-        data_lists, labels = zip(*batch)
+        view1 = [item["view1"] for item in batch]
+        view2 = [item["view2"] for item in batch]
+        view3 = [item["view3"] for item in batch]
+        labels = [item["label"] for item in batch]
 
         batched_graphs = []
-        for data_list in data_lists:
-            batched_graphs.append(data_list)
+        for i in range(len(view1)):
+            batched_graphs.append([view1[i], view2[i], view3[i]])
 
         labels = torch.tensor(labels, dtype=torch.long)
 
         return batched_graphs, labels
 
 
-class CustomDataLoader(torch.utils.data.DataLoader):
+class DataLoader(torch.utils.data.DataLoader):
     def __init__(self, dataset, batch_size: int = 1, shuffle: bool = False, **kwargs):
         self.collator = Collater(dataset)
 

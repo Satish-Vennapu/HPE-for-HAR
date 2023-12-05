@@ -7,6 +7,8 @@ from models.gcn import PoseGCN
 
 from typing import Tuple
 
+from sklearn.metrics import precision_recall_curve, confusion_matrix, roc_curve, auc
+import seaborn as sns
 
 class ActionRecogniser(nn.Module):
     def __init__(
@@ -48,7 +50,13 @@ class ActionRecogniser(nn.Module):
             Dimension of the feedforward network, by default 2048
         """
         super(ActionRecogniser, self).__init__()
-        self.gcn = PoseGCN(
+        self.gcn1 = PoseGCN(
+            gcn_num_features, gcn_hidden_dim1, gcn_hidden_dim2, gcn_output_dim
+        )
+        self.gcn2 = PoseGCN(
+            gcn_num_features, gcn_hidden_dim1, gcn_hidden_dim2, gcn_output_dim
+        )
+        self.gcn3 = PoseGCN(
             gcn_num_features, gcn_hidden_dim1, gcn_hidden_dim2, gcn_output_dim
         )
         self.transformer = TransformerBinaryClassifier(
@@ -61,7 +69,7 @@ class ActionRecogniser(nn.Module):
             num_classes=transformer_num_classes
         )
 
-    def forward(self, videos: torch.Tensor) -> torch.Tensor:
+    def forward(self, batch: torch.Tensor) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -74,13 +82,34 @@ class ActionRecogniser(nn.Module):
             Classification of the input sequence of keypoints
         """
         classifications = []
-        for video in videos:
-            frame_embeddings = []
-            for frame in video:
-                frame_embeddings.append(self.gcn(frame.to("cuda")))
-            frame_embeddings = torch.stack(frame_embeddings)
+        for item in batch:
+            view1_embeddings = []
+            view2_embeddings = []
+            view3_embeddings = []
+            for idx, view in enumerate(item):
+                if idx == 0:
+                    for pose in view:
+                        view1_embeddings.append(self.gcn1(pose.to("cuda")))
+                elif idx == 1:
+                    for pose in view:
+                        view2_embeddings.append(self.gcn2(pose.to("cuda")))
+                elif idx == 2:
+                    for pose in view:
+                        view3_embeddings.append(self.gcn3(pose.to("cuda")))
+            
+            # Adjust the list size to the smallest list
+            min_length = min(len(view1_embeddings), len(view2_embeddings), len(view3_embeddings))
+            view1_embeddings = view1_embeddings[:min_length]
+            view2_embeddings = view2_embeddings[:min_length]
+            view3_embeddings = view3_embeddings[:min_length]
+                            
+            view1_embeddings = torch.stack(view1_embeddings)
+            view2_embeddings = torch.stack(view2_embeddings)
+            view3_embeddings = torch.stack(view3_embeddings)
 
-            classification = self.transformer(frame_embeddings.unsqueeze(0).to("cuda"))
+            aggregated_embeddings = (view1_embeddings + view2_embeddings + view3_embeddings) / 3
+
+            classification = self.transformer(aggregated_embeddings.unsqueeze(0).to("cuda"))
             classifications.append(classification)
 
         return torch.stack(classifications).squeeze(1)
@@ -145,7 +174,7 @@ class Solver:
             transformer_num_classes
         ).to(self.device)
 
-        print(sum(p.numel() for p in self.model.parameters()))
+        print("Number of parameters :", sum(p.numel() for p in self.model.parameters()))
         self.lr = lr
 
         self.criterion = nn.CrossEntropyLoss().to(self.device)
@@ -179,9 +208,9 @@ class Solver:
         None
         """
         torch.manual_seed(0)
-
         best_val_loss = float("inf")
 
+        print("\nTraining started. Please wait...")
         for epoch in range(epochs):
             epoch_loss, epoch_correct, epoch_count = self.train_one_epoch(train_loader)
             self.train_loss.append(epoch_loss)
@@ -280,6 +309,35 @@ class Solver:
                 val_epoch_loss += val_loss.item()
 
         return val_epoch_loss, val_epoch_correct, val_epoch_count
+    
+    def test(self, test_loader: torch.utils.data.DataLoader) -> Tuple[float, int, int]:
+        """
+        Evaluates the model
+
+        Parameters
+        ----------
+        test_loader : torch.utils.data.DataLoader
+            DataLoader for the test dataset
+
+        Returns
+        -------
+        Tuple[float, int, int]
+            Tuple containing the test epoch loss, test epoch correct
+            and test epoch count
+        """
+        self.model.eval()
+        with torch.no_grad():
+            test_epoch_correct = 0
+            test_epoch_count = 0
+
+            for idx, batch in enumerate(iter(test_loader)):
+                predictions = self.model(batch[0])
+                labels = batch[1].to(self.device)
+
+                correct = predictions.argmax(axis=1) == labels
+
+                test_epoch_correct += correct.sum().item()
+                test_epoch_count += correct.size(0)
 
     def _plot_losses(self) -> None:
         """
