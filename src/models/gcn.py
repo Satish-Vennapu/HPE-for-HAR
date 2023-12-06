@@ -26,6 +26,8 @@ class PoseGCN(torch.nn.Module):
         self.conv2 = GCNConv(hidden_dim1, hidden_dim2)
         self.conv3 = GCNConv(hidden_dim2, output_dim)
 
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     def forward(self, data: Batch) -> torch.Tensor:
         """
         Parameters
@@ -39,9 +41,9 @@ class PoseGCN(torch.nn.Module):
             Output of the GCN of shape (batch_size, output_dim)
         """
         x, edge_index, batch = (
-            data.x.to("cuda"),
-            data.edge_index.to("cuda"),
-            data.batch.to("cuda"),
+            data.x.to(self.device),
+            data.edge_index.to(self.device),
+            data.batch.to(self.device),
         )
 
         x = self.conv1(x, edge_index)

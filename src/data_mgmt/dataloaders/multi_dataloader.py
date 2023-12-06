@@ -4,10 +4,31 @@ from typing import Any, List, Mapping, Sequence, Tuple
 
 
 class Collater:
+    """
+    Collates the batch of data
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset
+        Dataset to collate
+    """
     def __init__(self, dataset):
         self.dataset = dataset
 
     def __call__(self, batch) -> Any:
+        """
+        Collates the batch of data
+
+        Parameters
+        ----------
+        batch : List[Any]
+            Batch of data
+
+        Returns
+        -------
+        Any
+            Collated batch of data
+        """
         elem = batch[0]
 
         if isinstance(elem, torch.Tensor):
@@ -26,6 +47,19 @@ class Collater:
         raise TypeError(f"DataLoader found invalid type: '{type(elem)}'")
 
     def collate_fn(self, batch: List[Any]) -> Any:
+        """
+        Collates the batch of data
+
+        Parameters
+        ----------
+        batch : List[Any]
+            Batch of data
+
+        Returns
+        -------
+        Any
+            Collated batch of data
+        """
         view1 = [item["view1"] for item in batch]
         view2 = [item["view2"] for item in batch]
         view3 = [item["view3"] for item in batch]
@@ -41,6 +75,18 @@ class Collater:
 
 
 class DataLoader(torch.utils.data.DataLoader):
+    """
+    Dataloader for the dataset
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset
+        Dataset to load
+    batch_size : int, optional
+        Batch size, by default 1
+    shuffle : bool, optional
+        Whether to shuffle the dataset, by default False
+    """
     def __init__(self, dataset, batch_size: int = 1, shuffle: bool = False, **kwargs):
         self.collator = Collater(dataset)
 

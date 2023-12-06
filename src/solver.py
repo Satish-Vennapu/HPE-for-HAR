@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from itertools import cycle
 from logging import Logger
 
-from models.action_recognizer import ActionRecognizer
 from typing import Tuple
 
 from sklearn.metrics import confusion_matrix, roc_curve, auc
@@ -15,78 +14,38 @@ import seaborn as sns
 class Solver:
     def __init__(
         self,
-        gcn_num_features: int,
-        gcn_hidden_dim1: int,
-        gcn_hidden_dim2: int,
-        gcn_output_dim: int,
-        transformer_d_model: int,
-        transformer_nhead: int,
-        transformer_num_layers: int,
-        transformer_num_features: int,
-        transformer_dropout: float = 0.1,
-        transformer_dim_feedforward: int = 2048,
-        transformer_num_classes: int = 2,
+        model: nn.Module,
         lr: float = 5e-5,
-        is_single_view: bool = True,
         logger: Logger = None,
     ) -> None:
         """
         Parameters
         ----------
-        gcn_num_features : int
-            Number of features in the input sequence
-        gcn_hidden_dim1 : int
-            Dimension of the first hidden layer of the GCN
-        gcn_hidden_dim2 : int
-            Dimension of the second hidden layer of the GCN
-        gcn_output_dim : int
-            Dimension of the output layer of the GCN
-        transformer_d_model : int
-            Dimension of the input embedding
-        transformer_nhead : int
-            Number of attention heads
-        transformer_num_layers : int
-            Number of transformer encoder layers
-        transformer_num_features : int
-            Number of features in the input sequence
-        transformer_dropout : float, optional
-            Dropout rate, by default 0.1
-        transformer_dim_feedforward : int, optional
-            Dimension of the feedforward network, by default 2048
+        model : nn.Module
+            Model to be trained
         lr : float, optional
-            Learning rate, by default 0.00005
+            Learning rate, by default 5e-5
+        logger : Logger, optional
+            Logger object, by default None
         """
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.logger = logger
-
-        self.logger.info(f"Selected device: {self.device}")
-
-        self.model = ActionRecognizer(
-            gcn_num_features,
-            gcn_hidden_dim1,
-            gcn_hidden_dim2,
-            gcn_output_dim,
-            transformer_d_model,
-            transformer_nhead,
-            transformer_num_layers,
-            transformer_num_features,
-            transformer_dropout,
-            transformer_dim_feedforward,
-            transformer_num_classes,
-            is_single_view,
-        ).to(self.device)
-
-        self.logger.info(f"Model: {self.model}")
-        self.logger.info(
-            f"Number of parameters: {sum(p.numel() for p in self.model.parameters())}"
-        )
+        self.model = model
         self.lr = lr
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
 
         self.criterion = nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         self.scheduler = torch.optim.lr_scheduler.StepLR(
             self.optimizer, step_size=1, gamma=0.95
+        )
+
+        self.logger.info(f"Selected device: {self.device}")
+        self.logger.info(f"Model: {self.model}")
+        self.logger.info(
+            f"Number of parameters: {sum(p.numel() for p in self.model.parameters())}"
         )
 
         self.train_loss = []
@@ -216,7 +175,7 @@ class Solver:
 
         return val_epoch_loss, val_epoch_correct, val_epoch_count
 
-    def test(self, test_loader: torch.utils.data.DataLoader) -> Tuple[float, int, int]:
+    def test(self, test_loader: torch.utils.data.DataLoader) -> None:
         """
         Evaluates the model
 

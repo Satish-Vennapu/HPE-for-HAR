@@ -3,10 +3,9 @@ import argparse
 from collections import Counter
 
 from solver import Solver
+from model import get_multi_view, get_single_view
 from utils.logger import Logger
 from data_mgmt.datasets.ntu_dataset import PoseGraphDataset
-from data_mgmt.dataloaders.multi_dataloader import DataLoader as MultiDataLoader
-from data_mgmt.dataloaders.single_dataloader import DataLoader as SingleDataLoader
 
 
 def parse_args():
@@ -68,6 +67,12 @@ def parse_args():
         type=int,
         default=3,
         help="Dimension of the feedforward network",
+    )
+    parser.add_argument(
+        "--aggregator",
+        type=str,
+        default="average",
+        help="Aggregator for the GCN output - Options: average, linear, self_attn",
     )
     parser.add_argument("--lr", type=float, default=0.00005, help="Learning rate")
     parser.add_argument(
@@ -143,42 +148,15 @@ def main():
 
     logger.info(f"Model type: {'Single View' if args.single_view else 'Multi View'}")
     if not args.single_view:
-        train_dataloader = MultiDataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-        )
-        val_dataloader = MultiDataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-        )
-        test_dataloader = MultiDataLoader(
-            test_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+        model, (train_dataloader, val_dataloader, test_dataloader) = get_multi_view(
+            args, train_dataset, val_dataset, test_dataset
         )
     else:
-        train_dataloader = SingleDataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-        )
-        val_dataloader = SingleDataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=args.shuffle
-        )
-        test_dataloader = SingleDataLoader(
-            test_dataset, batch_size=args.batch_size, shuffle=args.shuffle
+        model, (train_dataloader, val_dataloader, test_dataloader) = get_single_view(
+            args, train_dataset, val_dataset, test_dataset
         )
 
-    solver = Solver(
-        gcn_num_features=args.gcn_num_features,
-        gcn_hidden_dim1=args.gcn_hidden_dim1,
-        gcn_hidden_dim2=args.gcn_hidden_dim2,
-        gcn_output_dim=args.gcn_output_dim,
-        transformer_d_model=args.transformer_d_model,
-        transformer_nhead=args.transformer_nhead,
-        transformer_num_layers=args.transformer_num_layers,
-        transformer_num_features=args.transformer_num_features,
-        transformer_dropout=args.transformer_dropout,
-        transformer_dim_feedforward=args.transformer_dim_feedforward,
-        transformer_num_classes=args.transformer_num_classes,
-        lr=args.lr,
-        is_single_view=args.single_view,
-        logger=logger,
-    )
+    solver = Solver(model, lr=args.lr, logger=logger)
 
     logger.info("")
     logger.info(f"Batch size: {args.batch_size}")
