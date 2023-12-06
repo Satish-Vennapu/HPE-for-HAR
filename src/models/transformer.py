@@ -36,7 +36,7 @@ def get_positional_encoding(seq_length: int, d_model: int) -> torch.Tensor:
     return pos_encoding.unsqueeze(0)
 
 
-class TransformerBinaryClassifier(nn.Module):
+class Transformer(nn.Module):
     """
     Transformer-based binary classifier
     """
@@ -67,7 +67,7 @@ class TransformerBinaryClassifier(nn.Module):
         dim_feedforward : int, optional
             Dimension of the feedforward network, by default 2048
         """
-        super(TransformerBinaryClassifier, self).__init__()
+        super(Transformer, self).__init__()
         self.d_model = d_model
         self.nhead = nhead
         self.num_layers = num_layers

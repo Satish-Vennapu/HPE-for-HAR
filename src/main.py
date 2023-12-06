@@ -5,6 +5,7 @@ from collections import Counter
 from solver import Solver
 from model import get_multi_view, get_single_view
 from utils.logger import Logger
+from utils.model_config import ModelConfig
 from data_mgmt.datasets.ntu_dataset import PoseGraphDataset
 
 
@@ -12,69 +13,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train the model")
 
     parser.add_argument(
-        "--gcn_num_features", type=int, default=3, help="Number of features in the GCN"
-    )
-    parser.add_argument(
-        "--gcn_hidden_dim1",
-        type=int,
-        default=32,
-        help="Dimension of the first hidden layer of the GCN",
-    )
-    parser.add_argument(
-        "--gcn_hidden_dim2",
-        type=int,
-        default=64,
-        help="Dimension of the second hidden layer of the GCN",
-    )
-    parser.add_argument(
-        "--gcn_output_dim",
-        type=int,
-        default=128,
-        help="Dimension of the output layer of the GCN",
-    )
-    parser.add_argument(
-        "--transformer_d_model",
-        type=int,
-        default=128,
-        help="Dimension of the input embedding",
-    )
-    parser.add_argument(
-        "--transformer_nhead", type=int, default=16, help="Number of attention heads"
-    )
-    parser.add_argument(
-        "--transformer_num_layers",
-        type=int,
-        default=8,
-        help="Number of transformer encoder layers",
-    )
-    parser.add_argument(
-        "--transformer_num_features",
-        type=int,
-        default=128,
-        help="Number of features in the input sequence",
-    )
-    parser.add_argument(
-        "--transformer_dropout", type=float, default=0.1, help="Dropout rate"
-    )
-    parser.add_argument(
-        "--transformer_dim_feedforward",
-        type=int,
-        default=2048,
-        help="Dimension of the feedforward network",
-    )
-    parser.add_argument(
-        "--transformer_num_classes",
-        type=int,
-        default=3,
-        help="Dimension of the feedforward network",
-    )
-    parser.add_argument(
         "--aggregator",
         type=str,
         default="average",
         help="Aggregator for the GCN output - Options: average, linear, self_attn",
     )
-    parser.add_argument("--lr", type=float, default=0.00005, help="Learning rate")
+    parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument(
         "--dataset_folder",
         type=str,
@@ -82,7 +26,7 @@ def parse_args():
         help="Path to the dataset folder",
     )
     parser.add_argument("--epochs", type=int, default=50, help="Number of epochs")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument(
         "--shuffle", type=bool, default=True, help="Shuffle the dataset"
     )
@@ -97,7 +41,23 @@ def parse_args():
         action="store_true",
         help="Use single view",
     )
+    parser.add_argument(
+        "--logging_config",
+        type=str,
+        default="../config/logger.ini",
+        help="Path to the logging config file",
+    )
+    parser.add_argument(
+        "--model_config",
+        type=str,
+        default="../config/model.json",
+        help="Path to the model config file",
+    )
     args = parser.parse_args()
+
+    if args.aggregator not in ["average", "linear", "self_attn"]:
+        raise ValueError("Invalid aggregator must be one of average, linear, self_attn")
+
     return args
 
 
@@ -136,7 +96,7 @@ def load_dataset(dataset_folder, logger):
 
 def main():
     args = parse_args()
-    logger = Logger("../config/logger.ini").get_logger()
+    logger = Logger(args.logging_config).get_logger()
 
     logger.info("\n")
     logger.info("Loading the dataset...")
@@ -147,17 +107,17 @@ def main():
     logger.info(f"Testing dataset size: {len(test_dataset)}")
 
     logger.info(f"Model type: {'Single View' if args.single_view else 'Multi View'}")
-    if not args.single_view:
-        model, (train_dataloader, val_dataloader, test_dataloader) = get_multi_view(
-            args, train_dataset, val_dataset, test_dataset
+    model_config = ModelConfig(args.model_config).get_config()
+    if args.single_view:
+        model, (train_dataloader, val_dataloader, test_dataloader) = get_single_view(
+            model_config, args, train_dataset, val_dataset, test_dataset
         )
     else:
-        model, (train_dataloader, val_dataloader, test_dataloader) = get_single_view(
-            args, train_dataset, val_dataset, test_dataset
+        model, (train_dataloader, val_dataloader, test_dataloader) = get_multi_view(
+            model_config, args, train_dataset, val_dataset, test_dataset
         )
 
     solver = Solver(model, lr=args.lr, logger=logger)
-
     logger.info("")
     logger.info(f"Batch size: {args.batch_size}")
     logger.info(f"Number of epochs: {args.epochs}")

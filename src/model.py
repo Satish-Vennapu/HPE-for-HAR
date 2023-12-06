@@ -7,10 +7,11 @@ from models.single_view import SingleViewActionRecognizer
 from data_mgmt.dataloaders.multi_dataloader import DataLoader as MultiDataLoader
 from data_mgmt.dataloaders.single_dataloader import DataLoader as SingleDataLoader
 
-from typing import Tuple
+from typing import Tuple, Dict
 
 
 def get_multi_view(
+    config: Dict,
     args: argparse.Namespace,
     train_dataset: Dataset,
     val_dataset: Dataset,
@@ -46,22 +47,23 @@ def get_multi_view(
     )
 
     return MultiViewActionRecognizer(
-        gcn_num_features=args.gcn_num_features,
-        gcn_hidden_dim1=args.gcn_hidden_dim1,
-        gcn_hidden_dim2=args.gcn_hidden_dim2,
-        gcn_output_dim=args.gcn_output_dim,
-        transformer_d_model=args.transformer_d_model,
-        transformer_nhead=args.transformer_nhead,
-        transformer_num_layers=args.transformer_num_layers,
-        transformer_num_features=args.transformer_num_features,
-        transformer_dropout=args.transformer_dropout,
-        transformer_dim_feedforward=args.transformer_dim_feedforward,
-        transformer_num_classes=args.transformer_num_classes,
+        gcn_num_features=config["gcn_num_features"],
+        gcn_hidden_dim1=config["gcn_hidden_dim1"],
+        gcn_hidden_dim2=config["gcn_hidden_dim2"],
+        gcn_output_dim=config["gcn_output_dim"],
+        transformer_d_model=config["transformer_d_model"],
+        transformer_nhead=config["transformer_nhead"],
+        transformer_num_layers=config["transformer_num_layers"],
+        transformer_num_features=config["transformer_num_features"],
+        transformer_dropout=config["transformer_dropout"],
+        transformer_dim_feedforward=config["transformer_dim_feedforward"],
+        transformer_num_classes=config["transformer_num_classes"],
         aggregator=args.aggregator,
     ), (train_loader, val_loader, test_loader)
 
 
 def get_single_view(
+    config: Dict,
     args: argparse.Namespace,
     train_dataset: Dataset,
     val_dataset: Dataset,
@@ -95,15 +97,15 @@ def get_single_view(
     )
 
     return SingleViewActionRecognizer(
-        gcn_num_features=args.gcn_num_features,
-        gcn_hidden_dim1=args.gcn_hidden_dim1,
-        gcn_hidden_dim2=args.gcn_hidden_dim2,
-        gcn_output_dim=args.gcn_output_dim,
-        transformer_d_model=args.transformer_d_model,
-        transformer_nhead=args.transformer_nhead,
-        transformer_num_layers=args.transformer_num_layers,
-        transformer_num_features=args.transformer_num_features,
-        transformer_dropout=args.transformer_dropout,
-        transformer_dim_feedforward=args.transformer_dim_feedforward,
-        transformer_num_classes=args.transformer_num_classes,
+        gcn_num_features=config["gcn_num_features"],
+        gcn_hidden_dim1=config["gcn_hidden_dim1"],
+        gcn_hidden_dim2=config["gcn_hidden_dim2"],
+        gcn_output_dim=config["gcn_output_dim"],
+        transformer_d_model=config["transformer_d_model"],
+        transformer_nhead=config["transformer_nhead"],
+        transformer_num_layers=config["transformer_num_layers"],
+        transformer_num_features=config["transformer_num_features"],
+        transformer_dropout=config["transformer_dropout"],
+        transformer_dim_feedforward=config["transformer_dim_feedforward"],
+        transformer_num_classes=config["transformer_num_classes"],
     ), (train_loader, val_loader, test_loader)

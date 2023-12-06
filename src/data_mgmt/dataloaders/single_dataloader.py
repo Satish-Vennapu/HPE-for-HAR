@@ -12,6 +12,7 @@ class Collater:
     dataset : torch.utils.data.Dataset
         Dataset to collate
     """
+
     def __init__(self, dataset):
         self.dataset = dataset
 
@@ -81,6 +82,7 @@ class DataLoader(torch.utils.data.DataLoader):
     shuffle : bool, optional
         Whether to shuffle the dataset, by default False
     """
+
     def __init__(self, dataset, batch_size: int = 1, shuffle: bool = False, **kwargs):
         self.collator = Collater(dataset)
 

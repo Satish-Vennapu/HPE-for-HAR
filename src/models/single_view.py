@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch_geometric.data import Batch
 
-from models.transformer import TransformerBinaryClassifier
+from models.transformer import Transformer
 from models.gcn import PoseGCN
 
 
@@ -50,7 +50,7 @@ class SingleViewActionRecognizer(nn.Module):
         self.gcn = PoseGCN(
             gcn_num_features, gcn_hidden_dim1, gcn_hidden_dim2, gcn_output_dim
         )
-        self.transformer = TransformerBinaryClassifier(
+        self.transformer = Transformer(
             transformer_d_model,
             transformer_nhead,
             transformer_num_layers,
