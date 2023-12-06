@@ -13,9 +13,7 @@ from typing import Tuple, Dict
 def get_multi_view(
     config: Dict,
     args: argparse.Namespace,
-    train_dataset: Dataset,
-    val_dataset: Dataset,
-    test_dataset: Dataset,
+    dataset: Tuple[Dataset, Dataset, Dataset],
 ) -> Tuple[
     MultiViewActionRecognizer, Tuple[MultiDataLoader, MultiDataLoader, MultiDataLoader]
 ]:
@@ -38,6 +36,7 @@ def get_multi_view(
     Tuple[MultiViewActionRecognizer, Tuple[MultiDataLoader, MultiDataLoader, MultiDataLoader]]
         Tuple containing the model and the dataloaders for the training, validation and testing datasets
     """
+    train_dataset, val_dataset, test_dataset = dataset
     train_loader = MultiDataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True
     )
@@ -65,9 +64,7 @@ def get_multi_view(
 def get_single_view(
     config: Dict,
     args: argparse.Namespace,
-    train_dataset: Dataset,
-    val_dataset: Dataset,
-    test_dataset: Dataset,
+    dataset: Tuple[Dataset, Dataset, Dataset],
 ) -> Tuple[
     SingleViewActionRecognizer, Tuple[MultiDataLoader, MultiDataLoader, MultiDataLoader]
 ]:
@@ -88,6 +85,7 @@ def get_single_view(
     Tuple[SingleViewActionRecognizer, Tuple[MultiDataLoader, MultiDataLoader, MultiDataLoader]]
         Tuple containing the model and the dataloaders for the training, validation and testing datasets
     """
+    train_dataset, val_dataset, test_dataset = dataset
     train_loader = SingleDataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True
     )

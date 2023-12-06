@@ -110,11 +110,11 @@ def main():
     model_config = ModelConfig(args.model_config).get_config()
     if args.single_view:
         model, (train_dataloader, val_dataloader, test_dataloader) = get_single_view(
-            model_config, args, train_dataset, val_dataset, test_dataset
+            model_config, args, (train_dataset, val_dataset, test_dataset)
         )
     else:
         model, (train_dataloader, val_dataloader, test_dataloader) = get_multi_view(
-            model_config, args, train_dataset, val_dataset, test_dataset
+            model_config, args, (train_dataset, val_dataset, test_dataset)
         )
 
     solver = Solver(model, lr=args.lr, logger=logger)
