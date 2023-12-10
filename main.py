@@ -3,7 +3,7 @@ import numpy as np
 import argparse
 from collections import Counter
 
-from solver import Solver
+from trainer import Trainer
 from model import get_multi_view, get_single_view
 from utils.logger import Logger
 from utils.model_config import ModelConfig
@@ -43,7 +43,7 @@ def parse_args():
         help="Use single view",
     )
     parser.add_argument(
-        "--logging_config",
+        "--logger_config",
         type=str,
         default="./config/logger.ini",
         help="Path to the logging config file",
@@ -103,11 +103,13 @@ def load_dataset(dataset_folder, logger, occlude=False):
 
 def main():
     args = parse_args()
-    logger = Logger(args.logging_config).get_logger()
+    logger = Logger(args.logger_config).get_logger()
 
     logger.info("\n")
     logger.info("Loading the dataset...")
-    train_dataset, val_dataset, test_dataset = load_dataset(args.dataset, logger, args.occlude)
+    train_dataset, val_dataset, test_dataset = load_dataset(
+        args.dataset, logger, args.occlude
+    )
 
     logger.info(f"Training dataset size: {len(train_dataset)}")
     logger.info(f"Validation dataset size: {len(val_dataset)}")
@@ -125,13 +127,13 @@ def main():
             model_config, args, (train_dataset, val_dataset, test_dataset)
         )
 
-    solver = Solver(model, lr=args.lr, logger=logger)
+    trainer = Trainer(model, lr=args.lr, logger=logger)
     logger.info(f"Batch size: {args.batch_size}")
     logger.info(f"Number of epochs: {args.epochs}")
     logger.info(f"Learning rate: {args.lr}")
 
     logger.info("Training the model. Please wait...")
-    solver.train(
+    trainer.train(
         train_dataloader,
         val_dataloader,
         epochs=args.epochs,
@@ -141,7 +143,10 @@ def main():
 
     logger.info("")
     logger.info("Testing model on the test dataset...")
-    solver.test(test_dataloader, output_path=args.output_folder, aggregator=args.aggregator)
+    trainer.test(
+        test_dataloader, output_path=args.output_folder, aggregator=args.aggregator
+    )
+
 
 if __name__ == "__main__":
     main()

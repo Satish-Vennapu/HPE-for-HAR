@@ -16,7 +16,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-class Solver:
+class Trainer:
     def __init__(
         self,
         model: nn.Module,
@@ -102,7 +102,7 @@ class Solver:
             self.logger.info(
                 f"epoch: {epoch} | epoch val   loss: {epoch_val_loss:.4f}   | epoch val accuracy: {epoch_val_correct / epoch_val_count:.4f}   | lr: {self.optimizer.param_groups[0]['lr']:.8f}"
             )
-            self.scheduler.step(epoch_val_loss/len(val_loader))
+            self.scheduler.step(epoch_val_loss / len(val_loader))
 
             if epoch_val_loss < best_val_loss and save_model:
                 best_val_loss = epoch_val_loss
@@ -111,11 +111,21 @@ class Solver:
                 torch.save(self.model.state_dict(), output_path + "best_model.pt")
                 self.best_model = self.model
 
-            self.writer.add_scalar("Training Loss per Epoch", (epoch_loss/len(train_loader)), epoch)
-            self.writer.add_scalar("Training Accuracy per Epoch", (epoch_correct/epoch_count), epoch)
+            self.writer.add_scalar(
+                "Training Loss per Epoch", (epoch_loss / len(train_loader)), epoch
+            )
+            self.writer.add_scalar(
+                "Training Accuracy per Epoch", (epoch_correct / epoch_count), epoch
+            )
 
-            self.writer.add_scalar("Validation Loss per Epoch", (epoch_val_loss/len(train_loader)), epoch)
-            self.writer.add_scalar("Validation Accuracy per Epoch", (epoch_val_correct/epoch_val_count), epoch)
+            self.writer.add_scalar(
+                "Validation Loss per Epoch", (epoch_val_loss / len(train_loader)), epoch
+            )
+            self.writer.add_scalar(
+                "Validation Accuracy per Epoch",
+                (epoch_val_correct / epoch_val_count),
+                epoch,
+            )
 
         self.writer.close()
         self._plot_losses()
@@ -198,7 +208,12 @@ class Solver:
 
         return val_epoch_loss, val_epoch_correct, val_epoch_count
 
-    def test(self, test_loader: torch.utils.data.DataLoader, output_path: str, aggregator: str) -> None:
+    def test(
+        self,
+        test_loader: torch.utils.data.DataLoader,
+        output_path: str,
+        aggregator: str,
+    ) -> None:
         """
         Evaluates the model
 
@@ -258,7 +273,16 @@ class Solver:
             plt.ylabel("True Positive Rate")
             plt.title("Receiver Operating Characteristic for Multi-class")
             plt.legend(loc="lower right")
-            file_name = time.strftime("%Y%m%d-%H%M%S") + "_" + self.model.__class__.__name__ + "_"  + "roc_curve" + "_" + aggregator + ".png" 
+            file_name = (
+                time.strftime("%Y%m%d-%H%M%S")
+                + "_"
+                + self.model.__class__.__name__
+                + "_"
+                + "roc_curve"
+                + "_"
+                + aggregator
+                + ".png"
+            )
             plt.savefig(os.path.join(output_path, file_name))
             plt.show()
 
@@ -274,7 +298,16 @@ class Solver:
             ax.set_xlabel("Predicted labels")
             ax.set_ylabel("True labels")
             ax.set_title("Confusion Matrix")
-            file_name = time.strftime("%Y%m%d-%H%M%S") + "_" + self.model.__class__.__name__ + "_"  + "confusion_matrix" + "_" + aggregator + ".png"
+            file_name = (
+                time.strftime("%Y%m%d-%H%M%S")
+                + "_"
+                + self.model.__class__.__name__
+                + "_"
+                + "confusion_matrix"
+                + "_"
+                + aggregator
+                + ".png"
+            )
             plt.savefig(os.path.join(output_path, file_name))
             plt.show()
 
