@@ -1,4 +1,5 @@
 import torch
+from torch_geometric.data import Batch
 from torch.utils.data.dataloader import default_collate
 from typing import Any, List, Mapping, Sequence, Tuple
 
@@ -63,6 +64,9 @@ class Collater:
         """
         batched_graphs = [item["view1"] for item in batch]
         labels = [item["label"] for item in batch]
+
+        for i in range(len(batched_graphs)):
+            batched_graphs[i] = Batch.from_data_list(batched_graphs[i])
 
         labels = torch.tensor(labels, dtype=torch.long)
 

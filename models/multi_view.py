@@ -92,21 +92,10 @@ class MultiViewActionRecognizer(nn.Module):
         """
         outputs = []
 
-        batch_view1 = [Batch.from_data_list(item[0]) for item in batch]
-        batch_view2 = [Batch.from_data_list(item[1]) for item in batch]
-        batch_view3 = [Batch.from_data_list(item[2]) for item in batch]
-
-        for i in range(len(batch_view1)):
-            view1_embedding = self.gcn1(batch_view1[i])
-            view2_embedding = self.gcn2(batch_view2[i])
-            view3_embedding = self.gcn3(batch_view3[i])
-            min_length = min(
-                len(view1_embedding), len(view2_embedding), len(view3_embedding)
-            )
-
-            view1_embedding = view1_embedding[:min_length]
-            view2_embedding = view2_embedding[:min_length]
-            view3_embedding = view3_embedding[:min_length]
+        for item in batch:
+            view1_embedding = self.gcn1(item[0])
+            view2_embedding = self.gcn2(item[1])
+            view3_embedding = self.gcn3(item[2])
 
             if self.aggregator == "linear":
                 output = torch.cat(

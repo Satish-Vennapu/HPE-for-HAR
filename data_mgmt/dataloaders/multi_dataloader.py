@@ -1,4 +1,5 @@
 import torch
+from torch_geometric.data import Batch
 from torch.utils.data.dataloader import default_collate
 from typing import Any, List, Mapping, Sequence, Tuple
 
@@ -68,7 +69,16 @@ class Collater:
 
         batched_graphs = []
         for i in range(len(view1)):
-            batched_graphs.append([view1[i], view2[i], view3[i]])
+            min_len = min(len(view1[i]), len(view2[i]), len(view3[i]))
+            view1[i] = view1[i][:min_len]
+            view2[i] = view2[i][:min_len]
+            view3[i] = view3[i][:min_len]
+            
+            batched_view1 = Batch.from_data_list(view1[i])
+            batched_view2 = Batch.from_data_list(view2[i])
+            batched_view3 = Batch.from_data_list(view3[i])
+
+            batched_graphs.append([batched_view1, batched_view2, batched_view3])
 
         labels = torch.tensor(labels, dtype=torch.long)
 

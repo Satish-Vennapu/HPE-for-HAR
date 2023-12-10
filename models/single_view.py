@@ -75,10 +75,9 @@ class SingleViewActionRecognizer(nn.Module):
             Classification of the input sequence of keypoints
         """
         outputs = []
-        batch_view = [Batch.from_data_list(item) for item in batch]
 
-        for i in range(len(batch_view)):
-            view_embedding = self.gcn(batch_view[i])
+        for item in batch:
+            view_embedding = self.gcn(item)
 
             output = self.transformer(view_embedding.unsqueeze(0).to(self.device))
             outputs.append(output)
