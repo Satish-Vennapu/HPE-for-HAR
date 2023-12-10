@@ -21,7 +21,7 @@ def parse_args():
     )
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate")
     parser.add_argument(
-        "--dataset_folder",
+        "--dataset",
         type=str,
         default="../dataset/Python/raw_npy/",
         help="Path to the dataset folder",
@@ -54,6 +54,11 @@ def parse_args():
         default="./config/model.json",
         help="Path to the model config file",
     )
+    parser.add_argument(
+        "--occlude",
+        action="store_true",
+        help="Augment the dataset",
+    )
     args = parser.parse_args()
 
     if args.aggregator not in ["average", "linear", "self_attn"]:
@@ -62,9 +67,9 @@ def parse_args():
     return args
 
 
-def load_dataset(dataset_folder, logger):
+def load_dataset(dataset_folder, logger, occlude=False):
     np.random.seed(42)
-    dataset = PoseGraphDataset(dataset_folder, skip=11, occlude=True)
+    dataset = PoseGraphDataset(dataset_folder, skip=11, occlude=occlude)
 
     if len(dataset) > 0:
         logger.info("Dataset loaded successfully.")
@@ -102,7 +107,7 @@ def main():
 
     logger.info("\n")
     logger.info("Loading the dataset...")
-    train_dataset, val_dataset, test_dataset = load_dataset(args.dataset_folder, logger)
+    train_dataset, val_dataset, test_dataset = load_dataset(args.dataset, logger, args.occlude)
 
     logger.info(f"Training dataset size: {len(train_dataset)}")
     logger.info(f"Validation dataset size: {len(val_dataset)}")
