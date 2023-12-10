@@ -108,7 +108,17 @@ class Trainer:
                 best_val_loss = epoch_val_loss
                 if not os.path.exists(output_path):
                     os.makedirs(output_path)
-                torch.save(self.model.state_dict(), output_path + "best_model.pt")
+
+                file_name = (
+                    output_path
+                    + time.strftime("%Y%m%d-%H%M%S")
+                    + "_"
+                    + self.model.__class__.__name__
+                    + "_"
+                    + self.model.aggregator
+                    + "_best_model.pt"
+                )
+                torch.save(self.model.state_dict(), file_name)
                 self.best_model = self.model
 
             self.writer.add_scalar(
@@ -247,7 +257,7 @@ class Trainer:
 
             accuracy = accuracy_score(labels, predictions)
             precision, recall, f1_score, _ = precision_recall_fscore_support(
-                labels, predictions, average=None
+                labels, predictions, average="weighted"
             )
 
             self.logger.info(f"Accuracy: {accuracy:.4f}")

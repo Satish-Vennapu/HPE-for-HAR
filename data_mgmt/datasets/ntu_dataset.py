@@ -9,12 +9,12 @@ from torch_geometric.data import Dataset
 from typing import Dict
 
 label_action = [
-    {"id" : 0, "A009" : "standing up"},
-    {"id" : 1, "A043" : "falling"},
-    {"id" : 2, "A026" : "hopping (one foot jumping)"},
-    {"id" : 3, "A016" : "wear a shoe"},
-    {"id" : 4, "A017" : "take off a shoe"},
-    {"id" : 5, "A027" : "jump up"},
+    {"id": 0, "A009": "standing up"},
+    {"id": 1, "A043": "falling"},
+    {"id": 2, "A026": "hopping (one foot jumping)"},
+    {"id": 3, "A016": "wear a shoe"},
+    {"id": 4, "A017": "take off a shoe"},
+    {"id": 5, "A027": "jump up"},
 ]
 
 file_name_regex = r"S(\d{3})C001P(\d{3})R(\d{3})A(\d{3})"
@@ -148,7 +148,9 @@ class PoseGraphDataset(Dataset):
     Dataset class for the keypoint dataset
     """
 
-    def __init__(self, dataset_folder: str, skip: int = 11, occlude: bool = False) -> None:
+    def __init__(
+        self, dataset_folder: str, skip: int = 11, occlude: bool = False
+    ) -> None:
         super().__init__(None, None, None)
         self.dataset_folder = dataset_folder
         self.edge_index = get_edge_index()
@@ -157,14 +159,14 @@ class PoseGraphDataset(Dataset):
         self.view2 = []
         self.view3 = []
         self.labels = []
-        
+
         self.occluded_kps = np.array([1, 13, 17, 18, 14, 19, 15, 20, 16])
 
         self.multi_view_files = get_multiview_files(dataset_folder)
         for files in self.multi_view_files:
             rand_view = np.random.randint(3)
 
-            for idx, file in enumerate(files): 
+            for idx, file in enumerate(files):
                 file_data = np.load(file, allow_pickle=True).item()
                 frames = file_data["skel_body0"]
 
@@ -208,7 +210,9 @@ class PoseGraphDataset(Dataset):
 
         return pose_graphs
 
-    def _occlude_keypoints(self, frames: torch.Tensor, mask_prob: float = 0.2) -> torch.Tensor:
+    def _occlude_keypoints(
+        self, frames: torch.Tensor, mask_prob: float = 0.2
+    ) -> torch.Tensor:
         """
         Occludes the keypoints of the pose
 
@@ -226,9 +230,9 @@ class PoseGraphDataset(Dataset):
         """
         index = np.random.randint(3)
         if index == 0:
-            mask_indices = np.arange(0, frames.shape[0]//2)
+            mask_indices = np.arange(0, frames.shape[0] // 2)
         elif index == 1:
-            mask_indices = np.arange(frames.shape[0]//2, frames.shape[0])
+            mask_indices = np.arange(frames.shape[0] // 2, frames.shape[0])
         else:
             mask_indices = np.arange(frames.shape[0])
 

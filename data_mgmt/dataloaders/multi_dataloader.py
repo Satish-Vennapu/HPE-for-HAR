@@ -73,7 +73,7 @@ class Collater:
             view1[i] = view1[i][:min_len]
             view2[i] = view2[i][:min_len]
             view3[i] = view3[i][:min_len]
-            
+
             batched_view1 = Batch.from_data_list(view1[i])
             batched_view2 = Batch.from_data_list(view2[i])
             batched_view3 = Batch.from_data_list(view3[i])
