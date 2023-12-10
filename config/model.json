@@ -9,5 +9,5 @@
     "transformer_num_features" : 128,
     "transformer_dropout" : 0.1,
     "transformer_dim_feedforward" : 2048,
-    "transformer_num_classes" : 3
+    "transformer_num_classes" : 6
 }

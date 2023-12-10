@@ -9,52 +9,12 @@ from torch_geometric.data import Dataset
 from typing import Dict
 
 label_action = [
-    # {"id" : 0, "A001" : "drink water"},
-    # {"id" : 1, "A002" : "eating"},
-    # {"id" : 2, "A003" : "brushing teeth"},
-    # {"id" : 3, "A004" : "brushing hair"},
-    # {"id" : 4, "A005" : "drop"},
-    # {"id" : 5, "A006" : "pickup"},
-    # {"id" : 6, "A007" : "throw"},
-    # {"id" : 7, "A008" : "sitting down"},
-    {"id": 0, "A009": "standing up"},
-    # {"id" : 9, "A010" : "clapping"},
-    # {"id" : 10, "A011" : "reading"},
-    # {"id" : 11, "A012" : "writing"},
-    # {"id" : 12, "A013" : "tear up paper"},
-    # {"id" : 13, "A014" : "wear jacket"},
-    # {"id" : 14, "A015" : "take off jacket"},
-    # {"id" : 15, "A016" : "wear a shoe"},
-    # {"id" : 16, "A017" : "take off a shoe"},
-    # {"id" : 17, "A018" : "wear on glasses"},
-    # {"id" : 21, "A022" : "cheer up"},
-    # {"id" : 22, "A023" : "hand waving"},
-    # {"id" : 23, "A024" : "kicking something"},
-    # {"id" : 24, "A025" : "reach into pocket"},
-    {"id": 2, "A026": "hopping (one foot jumping)"},
-    # {"id" : 26, "A027" : "jump up"},
-    # {"id" : 27, "A028" : "make a phone call/answer phone"},
-    # {"id" : 28, "A029" : "playing with phone/tablet"},
-    # {"id" : 29, "A030" : "typing on a keyboard"},
-    # {"id" : 30, "A031" : "pointing to something with finger"},
-    # {"id" : 31, "A032" : "taking a selfie"},
-    # {"id" : 32, "A033" : "check time (from watch)"},
-    # {"id" : 33, "A034" : "rub two hands together"},
-    # {"id" : 34, "A035" : "nod head/bow"},
-    # {"id" : 35, "A036" : "shake head"},
-    # {"id" : 36, "A037" : "wipe face"},
-    # {"id" : 37, "A038" : "salute"},
-    # {"id" : 38, "A039" : "put the palms together"},
-    # {"id" : 39, "A040" : "cross hands in front (say stop)"},
-    # {"id" : 40, "A041" : "sneeze/cough"},
-    # {"id" : 41, "A042" : "staggering"},
-    {"id": 1, "A043": "falling"},
-    # {"id" : 43, "A044" : "touch head"},
-    # {"id" : 44, "A045" : "touch chest"},
-    # {"id" : 45, "A046" : "touch back"},
-    # {"id" : 46, "A047" : "touch neck"},
-    # {"id" : 47, "A048" : "nausea or vomiting condition"},
-    # {"id" : 48, "A049" : "feeling warm"}
+    {"id" : 0, "A009" : "standing up"},
+    {"id" : 1, "A043" : "falling"},
+    {"id" : 2, "A026" : "hopping (one foot jumping)"},
+    {"id" : 3, "A016" : "wear a shoe"},
+    {"id" : 4, "A017" : "take off a shoe"},
+    {"id" : 5, "A027" : "jump up"},
 ]
 
 file_name_regex = r"S(\d{3})C001P(\d{3})R(\d{3})A(\d{3})"
@@ -62,6 +22,19 @@ file_name_regex = re.compile(file_name_regex)
 
 
 def get_label(file_name: str) -> int:
+    """
+    Returns the label of the file
+
+    Parameters
+    ----------
+    file_name : str
+        Name of the file
+
+    Returns
+    -------
+    int
+        Label of the file
+    """
     label = file_name[-4:]
     for i in label_action:
         if label in i:
@@ -175,7 +148,7 @@ class PoseGraphDataset(Dataset):
     Dataset class for the keypoint dataset
     """
 
-    def __init__(self, dataset_folder: str, skip: int = 11) -> None:
+    def __init__(self, dataset_folder: str, skip: int = 11, occlude: bool = False) -> None:
         super().__init__(None, None, None)
         self.dataset_folder = dataset_folder
         self.edge_index = get_edge_index()
@@ -184,14 +157,20 @@ class PoseGraphDataset(Dataset):
         self.view2 = []
         self.view3 = []
         self.labels = []
+        
+        self.occluded_kps = np.array([1, 13, 17, 18, 14, 19, 15, 20, 16])
 
         self.multi_view_files = get_multiview_files(dataset_folder)
         for files in self.multi_view_files:
-            file_name = files[0].split("/")[-1].split(".")[0]
-            for file in files:
+            rand_view = np.random.randint(3)
+
+            for idx, file in enumerate(files): 
                 file_data = np.load(file, allow_pickle=True).item()
-                kps = file_data["skel_body0"]
-                pose_graphs = self._create_pose_graph(kps)
+                frames = file_data["skel_body0"]
+
+                if occlude and idx == rand_view:
+                    frames = self._occlude_keypoints(frames)
+                pose_graphs = self._create_pose_graph(frames)
 
                 if "C001" in file:
                     self.view1.append(pose_graphs)
@@ -200,6 +179,7 @@ class PoseGraphDataset(Dataset):
                 elif "C003" in file:
                     self.view3.append(pose_graphs)
 
+            file_name = files[0].split("/")[-1].split(".")[0]
             self.labels.append(get_label(file_name))
 
     def _create_pose_graph(self, keypoints: torch.Tensor) -> Data:
@@ -228,6 +208,36 @@ class PoseGraphDataset(Dataset):
 
         return pose_graphs
 
+    def _occlude_keypoints(self, frames: torch.Tensor, mask_prob: float = 0.2) -> torch.Tensor:
+        """
+        Occludes the keypoints of the pose
+
+        Parameters
+        ----------
+        frames : torch.Tensor
+            Keypoints of the pose
+        mask_prob : float, optional
+            Probability of masking the frames, by default 0.5
+
+        Returns
+        -------
+        torch.Tensor
+            Occluded frames
+        """
+        index = np.random.randint(3)
+        if index == 0:
+            mask_indices = np.arange(0, frames.shape[0]//2)
+        elif index == 1:
+            mask_indices = np.arange(frames.shape[0]//2, frames.shape[0])
+        else:
+            mask_indices = np.arange(frames.shape[0])
+
+        masked_kps = frames[mask_indices]
+        masked_kps[:, self.occluded_kps, :] = -1
+        frames[mask_indices] = masked_kps
+
+        return frames
+
     def len(self) -> int:
         """
         Returns the number of samples in the dataset
@@ -245,8 +255,8 @@ class PoseGraphDataset(Dataset):
 
         Returns
         -------
-        dict : {kps, label, file_name}
-            A dictionary containing the keypoint array, label and file name
+        dict : {"view1" : view1, "view2" : view2, "view3" : view3, "label" : label}
+            Sample at the given index
         """
         view1 = self.view1[index]
         view2 = self.view2[index]

@@ -72,6 +72,7 @@ class Transformer(nn.Module):
         self.nhead = nhead
         self.num_layers = num_layers
         self.num_features = num_features
+        self.num_classes = num_classes
 
         self.pos_encoding = get_positional_encoding(
             1000, d_model
@@ -85,7 +86,7 @@ class Transformer(nn.Module):
             ),
             num_layers,
         )
-        self.decoder = nn.Linear(d_model, num_classes)
+        self.decoder = nn.Linear(self.d_model, self.num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

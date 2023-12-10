@@ -1,4 +1,5 @@
 import os
+import time
 from itertools import cycle
 from logging import Logger
 
@@ -43,8 +44,11 @@ class Solver:
 
         self.criterion = nn.CrossEntropyLoss().to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(
-            self.optimizer, step_size=1, gamma=0.95
+        # self.scheduler = torch.optim.lr_scheduler.StepLR(
+        #     self.optimizer, step_size=1, gamma=0.75
+        # )
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode="min", factor=0.75, patience=2, threshold=0.001
         )
 
         self.logger.info(f"Selected device: {self.device}")
@@ -55,6 +59,7 @@ class Solver:
 
         self.train_loss = []
         self.val_loss = []
+        self.best_model = None
 
     def train(
         self,
@@ -87,7 +92,7 @@ class Solver:
             epoch_loss, epoch_correct, epoch_count = self.train_one_epoch(train_loader)
             self.train_loss.append(epoch_loss)
             self.logger.info(
-                f"epoch: {epoch} | epoch train loss: {epoch_loss:.4f}   | epoch train accuracy: {epoch_correct / epoch_count:.4f}"
+                f"epoch: {epoch} | epoch train loss: {epoch_loss:.4f}   | epoch train accuracy: {epoch_correct / epoch_count:.4f}   | lr: {self.optimizer.param_groups[0]['lr']:.8f}"
             )
 
             epoch_val_loss, epoch_val_correct, epoch_val_count = self.evaluate(
@@ -95,17 +100,22 @@ class Solver:
             )
             self.val_loss.append(epoch_val_loss)
             self.logger.info(
-                f"epoch: {epoch} | epoch val   loss: {epoch_val_loss:.4f}   | epoch val accuracy: {epoch_val_correct / epoch_val_count:.4f}"
+                f"epoch: {epoch} | epoch val   loss: {epoch_val_loss:.4f}   | epoch val accuracy: {epoch_val_correct / epoch_val_count:.4f}   | lr: {self.optimizer.param_groups[0]['lr']:.8f}"
             )
-            self.scheduler.step()
+            self.scheduler.step(epoch_val_loss/len(val_loader))
 
             if epoch_val_loss < best_val_loss and save_model:
                 best_val_loss = epoch_val_loss
                 if not os.path.exists(output_path):
                     os.makedirs(output_path)
                 torch.save(self.model.state_dict(), output_path + "best_model.pt")
+                self.best_model = self.model
 
-            self.writer.add_scalar("loss x epoch", (epoch_loss/len(train_loader)), epoch)
+            self.writer.add_scalar("Training Loss per Epoch", (epoch_loss/len(train_loader)), epoch)
+            self.writer.add_scalar("Training Accuracy per Epoch", (epoch_correct/epoch_count), epoch)
+
+            self.writer.add_scalar("Validation Loss per Epoch", (epoch_val_loss/len(train_loader)), epoch)
+            self.writer.add_scalar("Validation Accuracy per Epoch", (epoch_val_correct/epoch_val_count), epoch)
 
         self.writer.close()
         self._plot_losses()
@@ -135,7 +145,7 @@ class Solver:
             labels = batch[1].to(self.device)
 
             loss = self.criterion(predictions, labels)
-            self.writer.add_scalar("Loss/train", loss, idx)
+            self.writer.add_scalar("Training loss per batch", loss, idx)
 
             correct = predictions.argmax(axis=1) == labels
             epoch_correct += correct.sum().item()
@@ -178,6 +188,7 @@ class Solver:
                 labels = batch[1].to(self.device)
 
                 val_loss = self.criterion(predictions, labels)
+                self.writer.add_scalar("Validation loss per batch", val_loss, idx)
 
                 correct = predictions.argmax(axis=1) == labels
 
@@ -206,12 +217,14 @@ class Solver:
         if not os.path.exists(output_path):
             os.makedirs(output_path)
 
-        self.model.eval()
+        torch.cuda.empty_cache()
+        self.best_model.to(self.device)
+        self.best_model.eval()
         with torch.no_grad():
             predictions = []
             labels = []
             for idx, batch in enumerate(iter(test_loader)):
-                predictions.extend(self.model(batch[0]).argmax(axis=1).tolist())
+                predictions.extend(self.best_model(batch[0]).argmax(axis=1).tolist())
                 labels.extend(batch[1].tolist())
 
             self.logger.info(f"Predictions: {predictions}")
@@ -245,7 +258,7 @@ class Solver:
             plt.ylabel("True Positive Rate")
             plt.title("Receiver Operating Characteristic for Multi-class")
             plt.legend(loc="lower right")
-            file_name = self.model.__class__.__name__ + "_"  + "roc_curve" + "_" + aggregator + "_" + str(self.lr) + ".png" 
+            file_name = time.strftime("%Y%m%d-%H%M%S") + "_" + self.model.__class__.__name__ + "_"  + "roc_curve" + "_" + aggregator + ".png" 
             plt.savefig(os.path.join(output_path, file_name))
             plt.show()
 
@@ -255,13 +268,13 @@ class Solver:
                 annot=True,
                 fmt="g",
                 cmap="Blues",
-                xticklabels=[0, 1, 2],
-                yticklabels=[0, 1, 2],
+                xticklabels=list(range(self.model.transformer.num_classes)),
+                yticklabels=list(range(self.model.transformer.num_classes)),
             )
             ax.set_xlabel("Predicted labels")
             ax.set_ylabel("True labels")
             ax.set_title("Confusion Matrix")
-            file_name = self.model.__class__.__name__ + "_"  + "confusion_matrix" + "_" + aggregator + "_" + str(self.lr) + ".png"
+            file_name = time.strftime("%Y%m%d-%H%M%S") + "_" + self.model.__class__.__name__ + "_"  + "confusion_matrix" + "_" + aggregator + ".png"
             plt.savefig(os.path.join(output_path, file_name))
             plt.show()
 

@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import argparse
 from collections import Counter
 
@@ -62,7 +63,8 @@ def parse_args():
 
 
 def load_dataset(dataset_folder, logger):
-    dataset = PoseGraphDataset(dataset_folder, skip=11)
+    np.random.seed(42)
+    dataset = PoseGraphDataset(dataset_folder, skip=11, occlude=True)
 
     if len(dataset) > 0:
         logger.info("Dataset loaded successfully.")
@@ -113,12 +115,12 @@ def main():
             model_config, args, (train_dataset, val_dataset, test_dataset)
         )
     else:
+        logger.info(f"Aggregator: {args.aggregator}")
         model, (train_dataloader, val_dataloader, test_dataloader) = get_multi_view(
             model_config, args, (train_dataset, val_dataset, test_dataset)
         )
 
     solver = Solver(model, lr=args.lr, logger=logger)
-    logger.info("")
     logger.info(f"Batch size: {args.batch_size}")
     logger.info(f"Number of epochs: {args.epochs}")
     logger.info(f"Learning rate: {args.lr}")
