@@ -100,9 +100,14 @@ class Transformer(nn.Module):
         torch.Tensor
             Output of the transformer-based binary classifier of shape (batch_size, num_classes)
         """
+        x = x.permute(1, 0, 2)
         x = self.encoder(x) * math.sqrt(self.d_model)
+
         x += self.pos_encoding[:, : x.size(1), :].type_as(x)
         x = self.dropout(x)
+
         x = self.transformer_encoder(x)
+        x = x.permute(1, 0, 2)
+        
         x = self.decoder(x[:, -1, :])
         return x

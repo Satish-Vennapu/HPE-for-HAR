@@ -7,7 +7,7 @@
     "transformer_nhead" : 16,
     "transformer_num_layers" : 8,
     "transformer_num_features" : 128,
-    "transformer_dropout" : 0.1,
+    "transformer_dropout" : 0.3,
     "transformer_dim_feedforward" : 2048,
     "transformer_num_classes" : 6
 }

@@ -95,6 +95,7 @@ def load_dataset(dataset_folder, logger, occlude=False):
     unique_labels = len(list(set(dataset.labels)))
     logger.info(f"Number of unique labels: {unique_labels}")
 
+    label_counts = dict(sorted(label_counts.items(), key=lambda item: item[0]))
     for label, count in label_counts.items():
         logger.info(f"Label: {label}, Count: {count}")
 
@@ -144,7 +145,7 @@ def main():
     logger.info("")
     logger.info("Testing model on the test dataset...")
     trainer.test(
-        test_dataloader, output_path=args.output_folder, aggregator=args.aggregator
+        test_dataloader, output_path=args.output_folder
     )
 
 

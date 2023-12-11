@@ -59,7 +59,7 @@ class SingleViewActionRecognizer(nn.Module):
             transformer_dim_feedforward,
             num_classes=transformer_num_classes,
         )
-
+        self.aggregator = "average"
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def forward(self, batch: torch.Tensor) -> torch.Tensor:

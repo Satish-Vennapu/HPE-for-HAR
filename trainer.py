@@ -48,7 +48,7 @@ class Trainer:
         #     self.optimizer, step_size=1, gamma=0.75
         # )
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode="min", factor=0.75, patience=2, threshold=0.001
+            self.optimizer, mode="min", factor=0.95, patience=6, threshold=0.001
         )
 
         self.logger.info(f"Selected device: {self.device}")
@@ -106,19 +106,6 @@ class Trainer:
 
             if epoch_val_loss < best_val_loss and save_model:
                 best_val_loss = epoch_val_loss
-                if not os.path.exists(output_path):
-                    os.makedirs(output_path)
-
-                file_name = (
-                    output_path
-                    + time.strftime("%Y%m%d-%H%M%S")
-                    + "_"
-                    + self.model.__class__.__name__
-                    + "_"
-                    + self.model.aggregator
-                    + "_best_model.pt"
-                )
-                torch.save(self.model.state_dict(), file_name)
                 self.best_model = self.model
 
             self.writer.add_scalar(
@@ -138,7 +125,7 @@ class Trainer:
             )
 
         self.writer.close()
-        self._plot_losses()
+        self._plot_losses(output_path)
 
     def train_one_epoch(
         self, train_loader: torch.utils.data.DataLoader
@@ -222,7 +209,6 @@ class Trainer:
         self,
         test_loader: torch.utils.data.DataLoader,
         output_path: str,
-        aggregator: str,
     ) -> None:
         """
         Evaluates the model
@@ -238,11 +224,20 @@ class Trainer:
             Tuple containing the test epoch loss, test epoch correct
             and test epoch count
         """
-        output_path = os.path.join(output_path, aggregator)
+        output_path = os.path.join(output_path, self.model.aggregator)
         if not os.path.exists(output_path):
             os.makedirs(output_path)
 
         torch.cuda.empty_cache()
+        file_name = (
+                    time.strftime("%Y%m%d-%H%M%S")
+                    + "_"
+                    + self.model.__class__.__name__
+                    + "_"
+                    + self.model.aggregator
+                    + "_best_model.pt"
+                )
+        torch.save(self.best_model.state_dict(), os.path.join(output_path, file_name))
         self.best_model.to(self.device)
         self.best_model.eval()
         with torch.no_grad():
@@ -252,8 +247,8 @@ class Trainer:
                 predictions.extend(self.best_model(batch[0]).argmax(axis=1).tolist())
                 labels.extend(batch[1].tolist())
 
-            self.logger.info(f"Predictions: {predictions}")
-            self.logger.info(f"Labels: {labels}")
+            self.logger.debug(f"Predictions: {predictions}")
+            self.logger.debug(f"Labels: {labels}")
 
             accuracy = accuracy_score(labels, predictions)
             precision, recall, f1_score, _ = precision_recall_fscore_support(
@@ -261,13 +256,13 @@ class Trainer:
             )
 
             self.logger.info(f"Accuracy: {accuracy:.4f}")
-            self.logger.info(f"Precision: {precision}")
-            self.logger.info(f"Recall: {recall}")
-            self.logger.info(f"F1 Score: {f1_score}")
+            self.logger.info(f"Precision: {precision:.4f}")
+            self.logger.info(f"Recall: {recall:.4f}")
+            self.logger.info(f"F1 Score: {f1_score:.4f}")
 
             plt.figure(figsize=(8, 6))
-            colors = cycle(["aqua", "darkorange", "cornflowerblue"])
-            for i, color in zip(range(3), colors):
+            colors = cycle(["aqua", "darkorange", "cornflowerblue", "red", "green", "blue"])
+            for i, color in zip(range(self.model.transformer.num_classes), colors):
                 fpr, tpr, _ = roc_curve(labels, predictions, pos_label=i)
                 roc_auc = auc(fpr, tpr)
                 plt.plot(
@@ -290,7 +285,7 @@ class Trainer:
                 + "_"
                 + "roc_curve"
                 + "_"
-                + aggregator
+                + self.model.aggregator
                 + ".png"
             )
             plt.savefig(os.path.join(output_path, file_name))
@@ -315,13 +310,13 @@ class Trainer:
                 + "_"
                 + "confusion_matrix"
                 + "_"
-                + aggregator
+                + self.model.aggregator
                 + ".png"
             )
             plt.savefig(os.path.join(output_path, file_name))
             plt.show()
 
-    def _plot_losses(self) -> None:
+    def _plot_losses(self, output_path: str) -> None:
         """
         Plots the training and validation losses
 
@@ -329,6 +324,10 @@ class Trainer:
         -------
         None
         """
+        output_path = os.path.join(output_path, "losses")
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
         plt.plot(self.train_loss)
         plt.xlabel("Epochs")
         plt.ylabel("Loss")
@@ -339,4 +338,15 @@ class Trainer:
         plt.ylabel("Loss")
         plt.title("Validation Loss")
         plt.legend(["Training Loss", "Validation Loss"])
+        file_name = (
+            time.strftime("%Y%m%d-%H%M%S")
+            + "_"
+            + self.model.__class__.__name__
+            + "_"
+            + "loss"
+            + "_"
+            + self.model.aggregator
+            + ".png"
+        )
+        plt.savefig(os.path.join(output_path, file_name))
         plt.show()
